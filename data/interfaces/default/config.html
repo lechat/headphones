@@ -2,6 +2,7 @@
 <%!
 	import headphones
 	import string
+	from headphones import databases
 %>
 
 <%def name="headerIncludes()">
@@ -24,11 +25,58 @@
 	<div id="tabs">
 		<ul>
 			<li><a href="#tabs-1">Web Interface</a></li>
+			<li><a href="#tabs-6">Database Settings</a></li>
 			<li><a href="#tabs-2">Download settings</a></li>
 			<li><a href="#tabs-3">Search providers</a></li>
 			<li><a href="#tabs-4">Quality &amp; Post Processing</a></li>
 			<li><a href="#tabs-5">Advanced Settings</a></li>
 		</ul>
+		
+		<div id="tabs-6">
+			<table class="configtable" summary="Database configuration">
+			<tr>
+				<td>
+					<fieldset>
+						<legend>Database Type</legend>
+						<div class="row"><label>Database Type</label>
+							<select name="dbtype"><h3>
+							%for dbmodule in config['db_list']:
+								<%
+									if dbmodule[0] == headphones.DB_MODE:
+										selected = 'selected="selected"'
+									else:
+										selected = ''
+								%>
+								<option value="${dbmodule[0]}" ${selected}>${dbmodule[1]}</option>
+							%endfor
+							</select>
+						</div>
+						<div class="row"><label>Migration options</label>
+						<input type="button" value="From SqlLite" onclick="doAjaxCall('fromSqllite',$(this),'tabs',true);return false;" data-success="Migration started">
+						<input type="button" value="To SqlLite" onclick="doAjaxCall('toSqllite',$(this),'tabs',true);return false;" data-success="Migration started">
+						<input type="button" value="To CSV" onclick="doAjaxCall('toCSV',$(this),'tabs',true);return false;" data-success="Export started">
+						</div>
+					</fieldset>
+				</td>
+				<td>
+					<fieldset>
+						<div class="row"><label>Server Name:</label><input type="text" name="server_name" value="${config['server_name']}" size="30"><small>[mySql] e.g. 127.0.0.1</small></div>
+						<div class="row"><label>Database Name:</label><input type="text" name="database_name" value="${config['database_name']}" size="30"><small>[mySql,sqlLite] e.g. headphones</small></div>
+						<div class="row"><label>User Name:</label><input type="text" name="server_user" value="${config['server_user']}" size="30"><small>[mySql] e.g. headphones, do not add extension for sqllite</small></div>
+						<div class="row"><label>Server Name:</label><input type="text" name="server_pass" value="${config['server_pass']}" size="30"><small>[mySql]</small></div>
+					</fieldset>
+				</td>
+			</tr>
+		    <tr>
+			<div class="configmessage">
+	        	    <span class="ui-icon ui-icon-info" ></span>Server, User and Password only required when database is not sqllite
+			</div>
+		    </tr>
+			</table>
+		<input type="button" class="configsubmit" value="Save Changes" onclick="doAjaxCall('configUpdate',$(this),'tabs',true);return false;" data-success="Changes saved successfully">
+		</div>
+		
+		
 		<div id="tabs-1">
 		
 		

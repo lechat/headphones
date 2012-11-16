@@ -18,6 +18,7 @@ import headphones
 import shutil
 import time
 
+import subprocess
 from subprocess import call
 from headphones import logger
 from lib.beets.mediafile import MediaFile

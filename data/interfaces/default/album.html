@@ -1,7 +1,7 @@
 <%inherit file="base.html" />
 <%!
-	from headphones import db, helpers
-	myDB = db.DBConnection()
+	from headphones import db, helpers, databases
+	myDB = databases.getDBConnection()		
 %>
 
 <%def name="headerIncludes()">
@@ -29,8 +29,8 @@
 						%else:
 							%for alternate_album in alternate_albums:
 								<%
-									track_count = len(myDB.select("SELECT * from alltracks WHERE ReleaseID=?", [alternate_album['ReleaseID']]))
-									have_track_count = len(myDB.select("SELECT * from alltracks WHERE ReleaseID=? AND Location IS NOT NULL", [alternate_album['ReleaseID']]))
+									track_count = myDB.selectOne("SELECT count(*) as tracks from alltracks WHERE ReleaseID=?", [alternate_album['ReleaseID']])['tracks']
+									have_track_count = myDB.selectOne("SELECT count(*) as cnt from alltracks WHERE ReleaseID=? AND Location IS NOT NULL", [alternate_album['ReleaseID']])['cnt']
 									if alternate_album['AlbumID'] == alternate_album['ReleaseID']:
 										alternate_album_name = "Headphones Default Release [" + str(have_track_count) + "/" + str(track_count) + " tracks]"
 									else:
@@ -57,8 +57,8 @@
 			<h1><a href="http://musicbrainz.org/release-group/${album['AlbumID']}">${album['AlbumTitle']}</a></h1>
 			<h2><a href="http://musicbrainz.org/artist/${album['ArtistID']}">${album['ArtistName']}</a></h2>
 			<%
-				totalduration = myDB.action("SELECT SUM(TrackDuration) FROM tracks WHERE AlbumID=?", [album['AlbumID']]).fetchone()[0]
-				totaltracks = len(myDB.select("SELECT TrackTitle from tracks WHERE AlbumID=?", [album['AlbumID']]))
+				totalduration = myDB.selectOne("SELECT SUM(TrackDuration) as duration FROM tracks WHERE AlbumID=?", [album['AlbumID']])['duration']
+				totaltracks = myDB.selectOne("SELECT count(*) as tracks from tracks WHERE AlbumID=?", [album['AlbumID']])['tracks']
 				try:
 					albumduration = helpers.convert_milliseconds(totalduration)
 				except:

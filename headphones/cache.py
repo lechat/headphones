@@ -19,7 +19,7 @@ import glob, urllib, urllib2
 import lib.simplejson as simplejson
 
 import headphones
-from headphones import db, helpers, logger
+from headphones import db, helpers, logger, databases
 
 lastfm_apikey = "690e1ed3bc00bc91804cd8f7fe5ed6d4"
 
@@ -181,16 +181,16 @@ class Cache(object):
     def get_info_from_cache(self, ArtistID=None, AlbumID=None):
         
         self.query_type = 'info'
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         
         if ArtistID:    
             self.id = ArtistID
             self.id_type = 'artist'
-            db_info = myDB.action('SELECT Summary, Content, LastUpdated FROM descriptions WHERE ArtistID=?', [self.id]).fetchone()
+            db_info = myDB.selectOne('SELECT Summary, Content, LastUpdated FROM descriptions WHERE ArtistID=?', [self.id])
         else:
             self.id = AlbumID
             self.id_type = 'album'
-            db_info = myDB.action('SELECT Summary, Content, LastUpdated FROM descriptions WHERE ReleaseGroupID=?', [self.id]).fetchone()
+            db_info = myDB.selectOne('SELECT Summary, Content, LastUpdated FROM descriptions WHERE ReleaseGroupID=?', [self.id])
 
         if not db_info or not db_info['LastUpdated'] or not self._is_current(date=db_info['LastUpdated']):
             
@@ -289,7 +289,7 @@ class Cache(object):
         '''
         Since we call the same url for both info and artwork, we'll update both at the same time
         '''
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         
         # Since lastfm uses release ids rather than release group ids for albums, we have to do a artist + album search for albums
         if self.id_type == 'artist':
@@ -338,7 +338,7 @@ class Cache(object):
         
         else:
 
-            dbartist = myDB.action('SELECT ArtistName, AlbumTitle FROM albums WHERE AlbumID=?', [self.id]).fetchone()
+            dbartist = myDB.selectOne('SELECT ArtistName, AlbumTitle FROM albums WHERE AlbumID=?', [self.id])
             
             params = {  "method": "album.getInfo",
                         "api_key": lastfm_apikey,
@@ -398,16 +398,16 @@ class Cache(object):
         # Save the image URL to the database
         if image_url:
             if self.id_type == 'artist':
-                myDB.action('UPDATE artists SET ArtworkURL=? WHERE ArtistID=?', [image_url, self.id])
+                myDB.update('UPDATE artists SET ArtworkURL=? WHERE ArtistID=?', [image_url, self.id])
             else:
-                myDB.action('UPDATE albums SET ArtworkURL=? WHERE AlbumID=?', [image_url, self.id])
+                myDB.update('UPDATE albums SET ArtworkURL=? WHERE AlbumID=?', [image_url, self.id])
         
         # Save the thumb URL to the database
         if thumb_url:
             if self.id_type == 'artist':
-                myDB.action('UPDATE artists SET ThumbURL=? WHERE ArtistID=?', [thumb_url, self.id])
+                myDB.update('UPDATE artists SET ThumbURL=? WHERE ArtistID=?', [thumb_url, self.id])
             else:
-                myDB.action('UPDATE albums SET ThumbURL=? WHERE AlbumID=?', [thumb_url, self.id])
+                myDB.update('UPDATE albums SET ThumbURL=? WHERE AlbumID=?', [thumb_url, self.id])
         
         # Should we grab the artwork here if we're just grabbing thumbs or info?? Probably not since the files can be quite big
         if image_url and self.query_type == 'artwork':

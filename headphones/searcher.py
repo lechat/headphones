@@ -28,7 +28,7 @@ import os, re, time
 import string
 
 import headphones, exceptions
-from headphones import logger, db, helpers, classes, sab
+from headphones import logger, db, helpers, classes, sab, databases
 
 import lib.bencode as bencode
 
@@ -101,7 +101,7 @@ def searchforalbum(albumid=None, new=False, lossless=False):
     
     if not albumid:
 
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
     
         results = myDB.select('SELECT AlbumID, Status from albums WHERE Status="Wanted" OR Status="Wanted Lossless"')
         new = True
@@ -132,7 +132,7 @@ def searchforalbum(albumid=None, new=False, lossless=False):
 
 def searchNZB(albumid=None, new=False, losslessOnly=False):
 
-    myDB = db.DBConnection()
+    myDB = databases.getDBConnection()
     
     if albumid:
         results = myDB.select('SELECT ArtistName, AlbumTitle, AlbumID, ReleaseDate, Type from albums WHERE AlbumID=?', [albumid])
@@ -546,8 +546,8 @@ def searchNZB(albumid=None, new=False, losslessOnly=False):
                         logger.error('Couldn\'t write NZB file: %s' % e)
                         break
                         
-                myDB.action('UPDATE albums SET status = "Snatched" WHERE AlbumID=?', [albums[2]])
-                myDB.action('INSERT INTO snatched VALUES( ?, ?, ?, ?, DATETIME("NOW", "localtime"), ?, ?)', [albums[2], bestqual[0], bestqual[1], bestqual[2], "Snatched", nzb_folder_name])
+                myDB.update('UPDATE albums SET status = "Snatched" WHERE AlbumID=?', [albums[2]])
+                myDB.insert('INSERT INTO snatched VALUES( ?, ?, ?, ?, DATETIME("NOW", "localtime"), ?, ?)', [albums[2], bestqual[0], bestqual[1], bestqual[2], "Snatched", nzb_folder_name])
                 return "found"
             else:
                 return "none"
@@ -659,7 +659,7 @@ def preprocess(resultlist):
 
 def searchTorrent(albumid=None, new=False, losslessOnly=False):
 
-    myDB = db.DBConnection()
+    myDB = databases.getDBConnection()
     
     if albumid:
         results = myDB.select('SELECT ArtistName, AlbumTitle, AlbumID, ReleaseDate from albums WHERE AlbumID=?', [albumid])
@@ -1212,8 +1212,8 @@ def searchTorrent(albumid=None, new=False, losslessOnly=False):
                         logger.error('Couldn\'t get name from Torrent file: %s' % e)
                         break
                         
-                myDB.action('UPDATE albums SET status = "Snatched" WHERE AlbumID=?', [albums[2]])
-                myDB.action('INSERT INTO snatched VALUES( ?, ?, ?, ?, DATETIME("NOW", "localtime"), ?, ?)', [albums[2], bestqual[0], bestqual[1], bestqual[2], "Snatched", torrent_folder_name])
+                myDB.update('UPDATE albums SET status = "Snatched" WHERE AlbumID=?', [albums[2]])
+                myDB.insert('INSERT INTO snatched VALUES( ?, ?, ?, ?, DATETIME("NOW", "localtime"), ?, ?)', [albums[2], bestqual[0], bestqual[1], bestqual[2], "Snatched", torrent_folder_name])
 
 def preprocesstorrent(resultlist, pre_sorted_list=False):
     selresult = ""

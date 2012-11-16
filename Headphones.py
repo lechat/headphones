@@ -88,17 +88,18 @@ def main():
         headphones.CONFIG_FILE = args.config
     else:
         headphones.CONFIG_FILE = os.path.join(headphones.DATA_DIR, 'config.ini')
-        
-    # Try to create the DATA_DIR if it doesn't exist
-    if not os.path.exists(headphones.DATA_DIR):
-        try:
-            os.makedirs(headphones.DATA_DIR)
-        except OSError:
-            raise SystemExit('Could not create data directory: ' + headphones.DATA_DIR + '. Exiting....')
     
-    # Make sure the DATA_DIR is writeable
-    if not os.access(headphones.DATA_DIR, os.W_OK):
-        raise SystemExit('Cannot write to the data directory: ' + headphones.DATA_DIR + '. Exiting...')
+    if headphones.DATA_DIR[1:6] == "mysql:":
+        # Try to create the DATA_DIR if it doesn't exist
+        if not os.path.exists(headphones.DATA_DIR):
+            try:
+                os.makedirs(headphones.DATA_DIR)
+            except OSError:
+                raise SystemExit('Could not create data directory: ' + headphones.DATA_DIR + '. Exiting....')
+        
+        # Make sure the DATA_DIR is writeable
+        if not os.access(headphones.DATA_DIR, os.W_OK):
+            raise SystemExit('Cannot write to the data directory: ' + headphones.DATA_DIR + '. Exiting...')
     
     # Put the database in the DATA_DIR
     headphones.DB_FILE = os.path.join(headphones.DATA_DIR, 'headphones.db')

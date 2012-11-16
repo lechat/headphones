@@ -9,7 +9,7 @@ import urllib2
 import cookielib
 from urlparse import urlparse
 from bs4 import BeautifulSoup
-from headphones import logger, db
+from headphones import logger, db, databases
 import lib.bencode as bencode
 import os
 
@@ -146,7 +146,7 @@ class Rutracker():
             
          # get headphones track count for album, return if not found
         
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         tracks = myDB.select('SELECT * from tracks WHERE AlbumID=?', [albumid])
         hptrackcount = len(tracks)
         

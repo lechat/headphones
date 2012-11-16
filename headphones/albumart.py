@@ -14,12 +14,12 @@
 #  along with Headphones.  If not, see <http://www.gnu.org/licenses/>.
 
 import urllib2
-from headphones import db
+from headphones import db,logger, databases
 
 def getAlbumArt(albumid):
 
-    myDB = db.DBConnection()
-    asin = myDB.action('SELECT AlbumASIN from albums WHERE AlbumID=?', [albumid]).fetchone()[0]
+    myDB = databases.getDBConnection()
+    asin = myDB.selectOne('SELECT AlbumASIN from albums WHERE AlbumID=?', [albumid])[0]
     
     if not asin:
         return None

@@ -1,6 +1,6 @@
 <%inherit file="base.html" />
 <%!
-	from headphones import db
+	from headphones import db, databases
 	import headphones
 %>
 
@@ -55,9 +55,10 @@
 				else:
 					grade = 'A'
 
-				myDB = db.DBConnection()					
-				totaltracks = len(myDB.select('SELECT TrackTitle from tracks WHERE AlbumID=?', [album['AlbumID']]))
-				havetracks = len(myDB.select('SELECT TrackTitle from tracks WHERE AlbumID=? AND Location IS NOT NULL', [album['AlbumID']])) + len(myDB.select('SELECT TrackTitle from have WHERE ArtistName like ? AND AlbumTitle LIKE ?', [album['ArtistName'], album['AlbumTitle']]))
+				myDB = databases.getDBConnection()						
+				totaltracks = myDB.selectOne('SELECT count(*) as total from tracks WHERE AlbumID=?', [album['AlbumID']])['total']
+				havetracks = myDB.selectOne('SELECT count(*) as have from tracks WHERE AlbumID=? AND Location IS NOT NULL', [album['AlbumID']])['have'] + \
+				             myDB.selectOne('SELECT count(*) as have from have WHERE ArtistName like ? AND AlbumTitle LIKE ?', [album['ArtistName'], album['AlbumTitle']])['have']
 				
 				try:
 					percent = (havetracks*100.0)/totaltracks
@@ -67,15 +68,15 @@
 					percent = 0
 					totaltracks = '?'
 					
-				avgbitrate = myDB.action("SELECT AVG(BitRate) FROM tracks WHERE AlbumID=?", [album['AlbumID']]).fetchone()[0]
+				avgbitrate = myDB.selectOne("SELECT AVG(BitRate) as bitrate FROM tracks WHERE AlbumID=?", [album['AlbumID']])['bitrate']
 				if avgbitrate:
 					bitrate = str(int(avgbitrate)/1000) + ' kbps'
 				else:
 					bitrate = ''
 
-				albumformatcount = myDB.action("SELECT COUNT(DISTINCT Format) FROM tracks WHERE AlbumID=?", [album['AlbumID']]).fetchone()[0]
+				albumformatcount = myDB.selectOne("SELECT COUNT(DISTINCT Format) as fmt FROM tracks WHERE AlbumID=?", [album['AlbumID']])['fmt']
 				if albumformatcount == 1:
-					albumformat = myDB.action("SELECT DISTINCT Format FROM tracks WHERE AlbumID=?", [album['AlbumID']]).fetchone()[0]
+					albumformat = myDB.selectOne("SELECT DISTINCT Format FROM tracks WHERE AlbumID=?", [album['AlbumID']])['Format']
 				elif albumformatcount > 1:
 					albumformat = 'Mixed'
 				else:

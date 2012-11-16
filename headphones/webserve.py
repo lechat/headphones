@@ -25,8 +25,9 @@ import threading
 
 import headphones
 
-from headphones import logger, searcher, db, importer, mb, lastfm, librarysync
+from headphones import logger, searcher, importer, mb, lastfm, librarysync, databases
 from headphones.helpers import checked, radio,today
+from databases import dbMigration
 
 import lib.simplejson as simplejson
 
@@ -54,14 +55,14 @@ class WebInterface(object):
     index.exposed=True
 
     def home(self):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         artists = myDB.select('SELECT * from artists order by ArtistSortName COLLATE NOCASE')
         return serve_template(templatename="index.html", title="Home", artists=artists)
     home.exposed = True
 
     def artistPage(self, ArtistID):
-        myDB = db.DBConnection()
-        artist = myDB.action('SELECT * FROM artists WHERE ArtistID=?', [ArtistID]).fetchone()
+        myDB = databases.getDBConnection()
+        artist = myDB.selectOne('SELECT * FROM artists WHERE ArtistID=?', [ArtistID])
         albums = myDB.select('SELECT * from albums WHERE ArtistID=? order by ReleaseDate DESC', [ArtistID])
         
         # Don't redirect to the artist page until it has the bare minimum info inserted 
@@ -71,7 +72,7 @@ class WebInterface(object):
         while retry < 5:
             if not artist:
                 time.sleep(1)
-                artist = myDB.action('SELECT * FROM artists WHERE ArtistID=?', [ArtistID]).fetchone()
+                artist = myDB.selectOne('SELECT * FROM artists WHERE ArtistID=?', [ArtistID])
                 retry += 1
             else:
                 break
@@ -101,10 +102,10 @@ class WebInterface(object):
     
     
     def albumPage(self, AlbumID):
-        myDB = db.DBConnection()
-        album = myDB.action('SELECT * from albums WHERE AlbumID=?', [AlbumID]).fetchone()
+        myDB = databases.getDBConnection()
+        album = myDB.selectOne('SELECT * from albums WHERE AlbumID=?', [AlbumID])
         tracks = myDB.select('SELECT * from tracks WHERE AlbumID=?', [AlbumID])
-        description = myDB.action('SELECT * from descriptions WHERE ReleaseGroupID=?', [AlbumID]).fetchone()
+        description = myDB.selectOne('SELECT * from descriptions WHERE ReleaseGroupID=?', [AlbumID])
         title = album['ArtistName'] + ' - ' + album['AlbumTitle']
         return serve_template(templatename="album.html", title=title, album=album, tracks=tracks, description=description)
     albumPage.exposed = True
@@ -143,7 +144,7 @@ class WebInterface(object):
                 i += 1
             extras = ','.join(str(n) for n in temp_extras_list)
             
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         controlValueDict = {'ArtistID': ArtistID}
         newValueDict = {'IncludeExtras': 1,
                         'Extras':        extras}
@@ -153,20 +154,20 @@ class WebInterface(object):
     getExtras.exposed = True
     
     def removeExtras(self, ArtistID):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         controlValueDict = {'ArtistID': ArtistID}
         newValueDict = {'IncludeExtras': 0}
         myDB.upsert("artists", newValueDict, controlValueDict)
         extraalbums = myDB.select('SELECT AlbumID from albums WHERE ArtistID=? AND Status="Skipped" AND Type!="Album"', [ArtistID])
         for album in extraalbums:
-            myDB.action('DELETE from tracks WHERE ArtistID=? AND AlbumID=?', [ArtistID, album['AlbumID']])
-            myDB.action('DELETE from albums WHERE ArtistID=? AND AlbumID=?', [ArtistID, album['AlbumID']])
+            myDB.delete('DELETE from tracks WHERE ArtistID=? AND AlbumID=?', [ArtistID, album['AlbumID']])
+            myDB.delete('DELETE from albums WHERE ArtistID=? AND AlbumID=?', [ArtistID, album['AlbumID']])
         raise cherrypy.HTTPRedirect("artistPage?ArtistID=%s" % ArtistID)
     removeExtras.exposed = True
     
     def pauseArtist(self, ArtistID):
         logger.info(u"Pausing artist: " + ArtistID)
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         controlValueDict = {'ArtistID': ArtistID}
         newValueDict = {'Status': 'Paused'}
         myDB.upsert("artists", newValueDict, controlValueDict)
@@ -175,7 +176,7 @@ class WebInterface(object):
     
     def resumeArtist(self, ArtistID):
         logger.info(u"Resuming artist: " + ArtistID)
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         controlValueDict = {'ArtistID': ArtistID}
         newValueDict = {'Status': 'Active'}
         myDB.upsert("artists", newValueDict, controlValueDict)
@@ -184,28 +185,28 @@ class WebInterface(object):
     
     def deleteArtist(self, ArtistID):
         logger.info(u"Deleting all traces of artist: " + ArtistID)
-        myDB = db.DBConnection()
-        myDB.action('DELETE from artists WHERE ArtistID=?', [ArtistID])
-        myDB.action('DELETE from albums WHERE ArtistID=?', [ArtistID])
-        myDB.action('DELETE from tracks WHERE ArtistID=?', [ArtistID])
-        myDB.action('DELETE from allalbums WHERE ArtistID=?', [ArtistID])
-        myDB.action('DELETE from alltracks WHERE ArtistID=?', [ArtistID])
-        myDB.action('INSERT OR REPLACE into blacklist VALUES (?)', [ArtistID])
+        myDB = databases.getDBConnection()
+        myDB.delete('DELETE from artists WHERE ArtistID=?', [ArtistID])
+        myDB.delete('DELETE from albums WHERE ArtistID=?', [ArtistID])
+        myDB.delete('DELETE from tracks WHERE ArtistID=?', [ArtistID])
+        myDB.delete('DELETE from allalbums WHERE ArtistID=?', [ArtistID])
+        myDB.delete('DELETE from alltracks WHERE ArtistID=?', [ArtistID])
+        myDB.insert('INSERT OR REPLACE into blacklist VALUES (?)', [ArtistID])
         raise cherrypy.HTTPRedirect("home")
     deleteArtist.exposed = True
     
     def deleteEmptyArtists(self):
         logger.info(u"Deleting all empty artists")
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         emptyArtistIDs = [row['ArtistID'] for row in myDB.select("SELECT ArtistID FROM artists WHERE LatestAlbum IS NULL")]
         for ArtistID in emptyArtistIDs:
             logger.info(u"Deleting all traces of artist: " + ArtistID)
-            myDB.action('DELETE from artists WHERE ArtistID=?', [ArtistID])
-            myDB.action('DELETE from albums WHERE ArtistID=?', [ArtistID])
-            myDB.action('DELETE from tracks WHERE ArtistID=?', [ArtistID])
-            myDB.action('DELETE from allalbums WHERE ArtistID=?', [ArtistID])
-            myDB.action('DELETE from alltracks WHERE ArtistID=?', [ArtistID])
-            myDB.action('INSERT OR REPLACE into blacklist VALUES (?)', [ArtistID])
+            myDB.delete('DELETE from artists WHERE ArtistID=?', [ArtistID])
+            myDB.delete('DELETE from albums WHERE ArtistID=?', [ArtistID])
+            myDB.delete('DELETE from tracks WHERE ArtistID=?', [ArtistID])
+            myDB.delete('DELETE from allalbums WHERE ArtistID=?', [ArtistID])
+            myDB.delete('DELETE from alltracks WHERE ArtistID=?', [ArtistID])
+            myDB.insert('INSERT OR REPLACE into blacklist VALUES (?)', [ArtistID])
     deleteEmptyArtists.exposed = True     
 
     def refreshArtist(self, ArtistID):
@@ -214,7 +215,7 @@ class WebInterface(object):
     refreshArtist.exposed=True  
     
     def markAlbums(self, ArtistID=None, action=None, **args):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         if action == 'WantedNew' or action == 'WantedLossless':
             newaction = 'Wanted'
         else:
@@ -243,7 +244,7 @@ class WebInterface(object):
     
     def queueAlbum(self, AlbumID, ArtistID=None, new=False, redirect=None, lossless=False):
         logger.info(u"Marking album: " + AlbumID + " as wanted...")
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         controlValueDict = {'AlbumID': AlbumID}
         if lossless:
             newValueDict = {'Status': 'Wanted Lossless'}
@@ -260,7 +261,7 @@ class WebInterface(object):
 
     def unqueueAlbum(self, AlbumID, ArtistID):
         logger.info(u"Marking album: " + AlbumID + "as skipped...")
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         controlValueDict = {'AlbumID': AlbumID}
         newValueDict = {'Status': 'Skipped'}
         myDB.upsert("albums", newValueDict, controlValueDict)
@@ -269,9 +270,9 @@ class WebInterface(object):
     
     def deleteAlbum(self, AlbumID, ArtistID=None):
         logger.info(u"Deleting all traces of album: " + AlbumID)
-        myDB = db.DBConnection()
-        myDB.action('DELETE from albums WHERE AlbumID=?', [AlbumID])
-        myDB.action('DELETE from tracks WHERE AlbumID=?', [AlbumID])
+        myDB = databases.getDBConnection()
+        myDB.delete('DELETE from albums WHERE AlbumID=?', [AlbumID])
+        myDB.delete('DELETE from tracks WHERE AlbumID=?', [AlbumID])
         if ArtistID:
             raise cherrypy.HTTPRedirect("artistPage?ArtistID=%s" % ArtistID)
         else:
@@ -288,26 +289,26 @@ class WebInterface(object):
     switchAlbum.exposed = True
 
     def upcoming(self):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         upcoming = myDB.select("SELECT * from albums WHERE ReleaseDate > date('now') order by ReleaseDate ASC")
         wanted = myDB.select("SELECT * from albums WHERE Status='Wanted'")
         return serve_template(templatename="upcoming.html", title="Upcoming", upcoming=upcoming, wanted=wanted)
     upcoming.exposed = True
     
     def manage(self):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         emptyArtists = myDB.select("SELECT * FROM artists WHERE LatestAlbum IS NULL")
         return serve_template(templatename="manage.html", title="Manage", emptyArtists=emptyArtists)
     manage.exposed = True
     
     def manageArtists(self):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         artists = myDB.select('SELECT * from artists order by ArtistSortName COLLATE NOCASE')
         return serve_template(templatename="manageartists.html", title="Manage Artists", artists=artists)
     manageArtists.exposed = True
     
     def manageAlbums(self, Status=None):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         if Status == "Upcoming":
             albums = myDB.select("SELECT * from albums WHERE ReleaseDate > date('now')")
         elif Status:
@@ -318,20 +319,20 @@ class WebInterface(object):
     manageAlbums.exposed = True
     
     def manageNew(self):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         newartists = myDB.select('SELECT * from newartists')
         return serve_template(templatename="managenew.html", title="Manage New Artists", newartists=newartists)
     manageNew.exposed = True    
     
     def markArtists(self, action=None, **args):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         artistsToAdd = []
         for ArtistID in args:
             if action == 'delete':
-                myDB.action('DELETE from artists WHERE ArtistID=?', [ArtistID])
-                myDB.action('DELETE from albums WHERE ArtistID=?', [ArtistID])
-                myDB.action('DELETE from tracks WHERE ArtistID=?', [ArtistID])
-                myDB.action('INSERT OR REPLACE into blacklist VALUES (?)', [ArtistID])
+                myDB.delete('DELETE from artists WHERE ArtistID=?', [ArtistID])
+                myDB.delete('DELETE from albums WHERE ArtistID=?', [ArtistID])
+                myDB.delete('DELETE from tracks WHERE ArtistID=?', [ArtistID])
+                myDB.insert('INSERT OR REPLACE into blacklist VALUES (?)', [ArtistID])
             elif action == 'pause':
                 controlValueDict = {'ArtistID': ArtistID}
                 newValueDict = {'Status': 'Paused'}
@@ -363,7 +364,7 @@ class WebInterface(object):
     def importItunes(self, path):
         headphones.PATH_TO_XML = path
         headphones.config_write()
-        threading.Thread(target=importer.itunesImport, args=[path]).start()
+#        threading.Thread(target=importer.itunesImport, args=[path]).start()
         time.sleep(10)
         raise cherrypy.HTTPRedirect("home")
     importItunes.exposed = True
@@ -409,7 +410,7 @@ class WebInterface(object):
     checkGithub.exposed = True
     
     def history(self):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         history = myDB.select('''SELECT * from snatched order by DateAdded DESC''')
         return serve_template(templatename="history.html", title="History", history=history)
     history.exposed = True
@@ -452,8 +453,9 @@ class WebInterface(object):
         iDisplayStart = int(iDisplayStart)
         iDisplayLength = int(iDisplayLength)
         filtered = []
-        totalcount = 0        
-        myDB = db.DBConnection()
+        totalcount = 0
+        filtercount = 0
+        myDB = databases.getDBConnection()
         
         
         sortcolumn = 'ArtistSortName'
@@ -467,12 +469,15 @@ class WebInterface(object):
 
         if sSearch == "":
             query = 'SELECT * from artists order by %s COLLATE NOCASE %s' % (sortcolumn,sSortDir_0)    
-            filtered = myDB.select(query)
-            totalcount = len(filtered) 
+            filtered = myDB.selectSome(query,iDisplayStart,iDisplayLength)
+            totalcount = myDB.selectOne('SELECT COUNT(*) as total from artists')['total']
+            filtercount = totalcount
         else:
             query = 'SELECT * from artists WHERE ArtistSortName LIKE "%' + sSearch + '%" OR LatestAlbum LIKE "%' + sSearch +'%"' +  'ORDER BY %s COLLATE NOCASE %s' % (sortcolumn,sSortDir_0)
             filtered = myDB.select(query)
-            totalcount = myDB.select('SELECT COUNT(*) from artists')[0][0]
+            filtercount = len(filtered)
+            filtered = filtered[iDisplayStart:(iDisplayStart+iDisplayLength)]
+            totalcount = myDB.selectOne('SELECT COUNT(*) as total from artists')['total']
 
         if sortbyhavepercent:
             filtered.sort(key=lambda x:(float(x['HaveTracks'])/x['TotalTracks'] if x['TotalTracks'] > 0 else 0.0,x['HaveTracks'] if x['HaveTracks'] else 0.0),reverse=sSortDir_0 == "asc")
@@ -483,7 +488,8 @@ class WebInterface(object):
             filtered.reverse()
             
 
-        artists = filtered[iDisplayStart:(iDisplayStart+iDisplayLength)]
+        artists = filtered
+        #[iDisplayStart:(iDisplayStart+iDisplayLength)]
         rows = []
         for artist in artists:
             row = {"ArtistID":artist['ArtistID'],
@@ -513,23 +519,23 @@ class WebInterface(object):
             rows.append(row)
 
 
-        dict = {'iTotalDisplayRecords':len(filtered),
+        jdict = {'iTotalDisplayRecords':filtercount, # len(filtered),
                 'iTotalRecords':totalcount,
                 'aaData':rows,
                 }
-        s = simplejson.dumps(dict)
+        s = simplejson.dumps(jdict)
         cherrypy.response.headers['Content-type'] = 'application/json'
         return s
     getArtists_json.exposed=True
 
     def clearhistory(self, type=None):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         if type == 'all':
             logger.info(u"Clearing all history")
-            myDB.action('DELETE from snatched')
+            myDB.delete('DELETE from snatched')
         else:
             logger.info(u"Clearing history where status is %s" % type)
-            myDB.action('DELETE from snatched WHERE Status=?', [type])
+            myDB.delete('DELETE from snatched WHERE Status=?', [type])
         raise cherrypy.HTTPRedirect("history")
     clearhistory.exposed = True
     
@@ -542,6 +548,50 @@ class WebInterface(object):
         return apikey
     
     generateAPI.exposed = True
+    
+    def toCSV(self):
+        threading.Thread(target=dbMigration.export()).start()
+        return
+    
+    toCSV.exposed = True
+    
+    def toSqllite(self):
+        threading.Thread(target=dbMigration.migrateTo()).start()
+        return
+    
+    toSqllite.exposed = True
+    
+    def fromSqllite(self):
+        threading.Thread(target=dbMigration.migrateFrom()).start()
+        return
+    
+    fromSqllite.exposed = True
+    
+    def checkDB(self):
+        m = databases.getDBModule(headphones.DB_MODE)
+        threading.Thread(target=m.maintenance()).start()
+        return
+    
+    checkDB.exposed = True
+    
+    def autoManage(self,atype=None,effect=None):
+        logger.info("autoManage update artist: %s, %s" % (str(atype),str(effect)))
+        now = time.localtime(time.time())
+        atypes = {'None':"(releasedate is NULL or releasedate = '')",
+                  'y5':"releasedate < '" + str(now.tm_year - 5) + "-" + str(now.tm_mon) + "-" + str(now.tm_mday) + "'",
+                  'y10':"releasedate < '" + str(now.tm_year - 10) + "-" + str(now.tm_mon) + "-" + str(now.tm_mday) + "'",
+                  'All':'1=1'}
+        effects = {'pause': "Paused",
+                   'resume':"Active"}
+        try:
+            myDB = databases.getDBConnection()
+            sql = "UPDATE artists SET status='"+ effects[effect] +"' WHERE " + atypes[atype]
+            myDB.update(sql)
+        except Exception as e:
+            logger.error("Artist update failed: %s" % e)
+        return
+    
+    autoManage.exposed = True
     
     def config(self):
     
@@ -657,6 +707,11 @@ class WebInterface(object):
                     "hpuser": headphones.HPUSER,
                     "hppass": headphones.HPPASS,
                     "cache_sizemb":headphones.CACHE_SIZEMB,
+                    "server_name":headphones.MYSQL_SERVER,
+                    "database_name":headphones.MYSQL_DB,
+                    "server_user":headphones.MYSQL_USER,
+                    "server_pass":headphones.MYSQL_PASS,
+                    "db_list":databases.getDBList(),
                 }
             
         # Need to convert EXTRAS to a dictionary we can pass to the config: it'll come in as a string like 2,5,6,8
@@ -689,7 +744,8 @@ class WebInterface(object):
         bitrate=None, samplingfrequency=None, encoderfolder=None, advancedencoder=None, encoderoutputformat=None, encodervbrcbr=None, encoderquality=None, encoderlossless=0, 
         delete_lossless_files=0, prowl_enabled=0, prowl_onsnatch=0, prowl_keys=None, prowl_priority=0, xbmc_enabled=0, xbmc_host=None, xbmc_username=None, xbmc_password=None, 
         xbmc_update=0, xbmc_notify=0, nma_enabled=False, nma_apikey=None, nma_priority=0, nma_onsnatch=0, synoindex_enabled=False, mirror=None, customhost=None, customport=None, 
-        customsleep=None, hpuser=None, hppass=None, preferred_bitrate_high_buffer=None, preferred_bitrate_low_buffer=None, cache_sizemb=None, **kwargs):
+        customsleep=None, hpuser=None, hppass=None, preferred_bitrate_high_buffer=None, preferred_bitrate_low_buffer=None, cache_sizemb=None, dbtype=None,
+        server_name=None, database_name=None, server_user=None, server_pass=None, **kwargs):
 
         headphones.HTTP_HOST = http_host
         headphones.HTTP_PORT = http_port
@@ -795,6 +851,13 @@ class WebInterface(object):
         headphones.HPPASS = hppass
         headphones.CACHE_SIZEMB = int(cache_sizemb)
 
+        old_mode = headphones.DB_MODE        
+        headphones.DB_MODE = dbtype
+        headphones.MYSQL_SERVER = server_name
+        headphones.MYSQL_DB = database_name
+        headphones.MYSQL_USER = server_user
+        headphones.MYSQL_PASS = server_pass
+
         # Handle the variable config options. Note - keys with False values aren't getting passed
         
         headphones.EXTRA_NEWZNABS = []
@@ -826,6 +889,12 @@ class WebInterface(object):
         # Write the config
         headphones.config_write()
 
+        # database
+        if old_mode <> headphones.DB_MODE:
+            logger.info(u"Database provider changed. Checking database...")
+            databases.getDBModule(headphones.DB_MODE).dbcheck()
+            logger.info(u"Database provider changed. Check finished.")
+
         #reconfigure musicbrainz database connection with the new values
         mb.startmb()
 
@@ -837,7 +906,7 @@ class WebInterface(object):
         headphones.SIGNAL = 'shutdown'
         message = 'Shutting Down...'
         return serve_template(templatename="shutdown.html", title="Shutting Down", message=message, timer=15)
-        return page
+#        return page
 
     shutdown.exposed = True
 
@@ -851,14 +920,14 @@ class WebInterface(object):
         headphones.SIGNAL = 'update'
         message = 'Updating...'
         return serve_template(templatename="shutdown.html", title="Updating", message=message, timer=120)
-        return page
+#        return page
     update.exposed = True
         
     def extras(self):
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         cloudlist = myDB.select('SELECT * from lastfmcloud')
         return serve_template(templatename="extras.html", title="Extras", cloudlist=cloudlist)
-        return page
+#        return page
     extras.exposed = True
 
     def addReleaseById(self, rid):
@@ -988,6 +1057,5 @@ class Artwork(object):
         default.exposed = True
     
     thumbs = Thumbs()
-    
     
 WebInterface.artwork = Artwork()

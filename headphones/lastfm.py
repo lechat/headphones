@@ -20,14 +20,14 @@ import random
 import time
 
 import headphones
-from headphones import db, logger
+from headphones import db, logger, databases
 
 api_key = '395e6ec6bb557382fc41fde867bce66f'
 
   
 def getSimilar():
     
-    myDB = db.DBConnection()
+    myDB = databases.getDBConnection()
     results = myDB.select('SELECT ArtistID from artists ORDER BY HaveTracks DESC')
     
     artistlist = []
@@ -79,15 +79,15 @@ def getSimilar():
     
     random.shuffle(top_list)
     
-    myDB.action('''DELETE from lastfmcloud''')
+    myDB.delete('''DELETE from lastfmcloud''')
     for tuple in top_list:
         artist_name, artist_mbid = tuple[0]
         count = tuple[1]    
-        myDB.action('INSERT INTO lastfmcloud VALUES( ?, ?, ?)', [artist_name, artist_mbid, count])
+        myDB.insert('INSERT INTO lastfmcloud VALUES( ?, ?, ?)', [artist_name, artist_mbid, count])
         
 def getArtists():
 
-    myDB = db.DBConnection()
+    myDB = databases.getDBConnection()
     results = myDB.select('SELECT ArtistID from artists')
 
     if not headphones.LASTFM_USERNAME:
@@ -127,7 +127,7 @@ def getArtists():
         importer.addArtisttoDB(artistid)
     
 def getTagTopArtists(tag, limit=50):
-    myDB = db.DBConnection()
+    myDB = databases.getDBConnection()
     results = myDB.select('SELECT ArtistID from artists')
 
     url = 'http://ws.audioscrobbler.com/2.0/?method=tag.gettopartists&limit=%s&tag=%s&api_key=%s' % (limit, tag, api_key)
@@ -163,7 +163,7 @@ def getTagTopArtists(tag, limit=50):
 
 def getAlbumDescription(rgid, artist, album):
     
-    myDB = db.DBConnection()    
+    myDB = databases.getDBConnection()
     result = myDB.select('SELECT Summary from descriptions WHERE ReleaseGroupID=?', [rgid])
     
     if result:
@@ -208,7 +208,7 @@ def getAlbumDescriptionOld(rgid, releaselist):
     because I may use it to fetch and cache album art
     """
 
-    myDB = db.DBConnection()    
+    myDB = databases.getDBConnection()
     result = myDB.select('SELECT Summary from descriptions WHERE ReleaseGroupID=?', [rgid])
     
     if result:

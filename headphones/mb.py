@@ -19,8 +19,8 @@ import time
 import threading
 
 import headphones
-from headphones import logger, db
-from headphones.helpers import multikeysort, replace_all
+from headphones import logger,databases
+# from headphones.helpers import multikeysort, replace_all
 
 import lib.musicbrainzngs as musicbrainzngs
 from lib.musicbrainzngs import WebServiceError
@@ -187,13 +187,13 @@ def getArtist(artistid, extrasonly=False):
         #artist_dict['artist_uniquename'] = uniquename
         #artist_dict['artist_type'] = unicode(artist['type'])
 
-        #artist_dict['artist_begindate'] = None
-        #artist_dict['artist_enddate'] = None
-        #if 'life-span' in artist:
-        #    if 'begin' in artist['life-span']:
-        #        artist_dict['artist_begindate'] = unicode(artist['life-span']['begin'])
-        #    if 'end' in artist['life-span']:
-        #        artist_dict['artist_enddate'] = unicode(artist['life-span']['end'])      
+        artist_dict['artist_begindate'] = None
+        artist_dict['artist_enddate'] = None
+        if 'life-span' in artist:
+            if 'begin' in artist['life-span']:
+                artist_dict['artist_begindate'] = unicode(artist['life-span']['begin'])
+            if 'end' in artist['life-span']:
+                artist_dict['artist_enddate'] = unicode(artist['life-span']['end'])      
 
 
         releasegroups = []
@@ -211,10 +211,10 @@ def getArtist(artistid, extrasonly=False):
                 
         # See if we need to grab extras. Artist specific extras take precedence over global option
         # Global options are set when adding a new artist
-        myDB = db.DBConnection()
-
+        myDB = databases.getDBConnection()
+        
         try:
-            db_artist = myDB.action('SELECT IncludeExtras, Extras from artists WHERE ArtistID=?', [artistid]).fetchone()
+            db_artist = myDB.selectOne('SELECT IncludeExtras, Extras from artists WHERE ArtistID=?', [artistid])
             includeExtras = db_artist['IncludeExtras']
         except IndexError:
             includeExtras = False
@@ -407,9 +407,9 @@ def getTracksFromRelease(release):
 # Used when there is a disambiguation
 def findArtistbyAlbum(name):
 
-    myDB = db.DBConnection()
-    
-    artist = myDB.action('SELECT AlbumTitle from have WHERE ArtistName=? AND AlbumTitle IS NOT NULL ORDER BY RANDOM()', [name]).fetchone()
+    myDB = databases.getDBConnection()
+        
+    artist = myDB.selectOne('SELECT AlbumTitle from have WHERE ArtistName=? AND AlbumTitle IS NOT NULL ORDER BY RANDOM()', [name])
     
     if not artist:
         return False
