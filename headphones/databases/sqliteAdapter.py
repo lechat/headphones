@@ -86,7 +86,7 @@ class DBConnection:
                     raise
             
             return sqlResult
-        
+            
     def tableExport(self,tableName):
         cnt = self.selectOne("SELECT COUNT(*) as total FROM "+tableName)['total'] 
         c=self.connection.cursor()
@@ -133,13 +133,16 @@ class DBConnection:
         genParams = lambda myDict : [x + " = ?" for x in myDict.keys()]
         
         query = "UPDATE "+tableName+" SET " + ", ".join(genParams(valueDict)) + " WHERE " + " AND ".join(genParams(keyDict))
-        
+        s1 = time.time()
         self.action(query, valueDict.values() + keyDict.values())
-        
+        s2 = time.time()
         if self.connection.total_changes == changesBefore:
+            
             query = "INSERT INTO "+tableName+" (" + ", ".join(valueDict.keys() + keyDict.keys()) + ")" + \
                         " VALUES (" + ", ".join(["?"] * len(valueDict.keys() + keyDict.keys())) + ")"
             self.action(query, valueDict.values() + keyDict.values())
+        if (time.time() - s1) > 0.5:
+            logger.warn("Timings for upsert: %f(update), %f(insert)" % ( s2 - s1, time.time() - s2 ))
 
 def dbNiceName():
     return "SQL Lite"
@@ -188,6 +191,12 @@ def dbcheck():
     c.execute('CREATE INDEX IF NOT EXISTS tracks_albumid ON tracks(AlbumID ASC)')
     c.execute('CREATE INDEX IF NOT EXISTS album_artistid_reldate ON albums(ArtistID ASC, ReleaseDate DESC)')
     c.execute("CREATE INDEX IF NOT EXISTS tracks_artistid ON Tracks(ArtistID ASC)")
+    c.execute("CREATE INDEX IF NOT EXISTS alltracks_trackid_releaseid ON alltracks(TrackID,ReleaseID)")
+    c.execute("CREATE INDEX IF NOT EXISTS alltracks_trackid_albumtitle ON alltracks(TrackID,AlbumTitle)")
+    c.execute("CREATE INDEX IF NOT EXISTS tracks_trackid_albumid ON tracks(TrackID,AlbumId)")
+    c.execute("CREATE INDEX IF NOT EXISTS tracks_trackid_releaseid ON tracks(TrackID,ReleaseID)")
+    c.execute("CREATE INDEX IF NOT EXISTS tracks_trackid_albumtitle ON tracks(TrackID,AlbumTitle)")
+    c.execute("CREATE INDEX IF NOT EXISTS tracks_trackid_albumid ON tracks(TrackID,AlbumId)")
     
     try:
         c.execute('SELECT IncludeExtras from artists')

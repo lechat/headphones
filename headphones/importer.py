@@ -18,7 +18,7 @@
 # import os
 from lib.beets.mediafile import MediaFile
 
-import headphones
+import headphones, time
 from headphones import logger, helpers, mb, lastfm, databases, progress
 
 blacklisted_special_artist_names = ['[anonymous]','[data]','[no artist]','[traditional]','[unknown]','Various Artists']
@@ -119,6 +119,8 @@ def addArtisttoDB(artistid, extrasonly=False):
     # Putting this here to get around the circular import. We're using this to update thumbnails for artist/albums
     from headphones import cache
     
+    tm = {}
+    
     # Can't add various artists - throws an error from MB
     if artistid in blacklisted_special_artists:
         logger.warn('Cannot import blocked special purpose artist with id' + artistid)
@@ -151,8 +153,13 @@ def addArtisttoDB(artistid, extrasonly=False):
         newValueDict = {"Status":   "Loading"}
 
     myDB.upsert("artists", newValueDict, controlValueDict)
-        
+    
+    tm["start"] = time.time()
+    
     artist = mb.getArtist(artistid, extrasonly)
+    
+    tm["after MB"] = time.time()
+    
     
     if artist and artist.get('artist_name') in blacklisted_special_artist_names:
         logger.warn('Cannot import blocked special purpose artist: %s' % artist.get('artist_name'))
@@ -200,7 +207,18 @@ def addArtisttoDB(artistid, extrasonly=False):
         includeExtras = False  
 
     pr = progress.get("Artist Update",desc="Retrieve releasegroups",mod=__name__,max=len(artist['releasegroups']))
-
+    
+    tm["start releasegroups"] = time.time()
+    tcnt = 0
+    ttime = 0
+    tdb = 0
+    tselect = 0
+    tupdate = 0
+    tupsert = 0
+    tprologue = 0
+    mb1 = 0
+    htotal = 0
+    mtotal = 0
     for idx,rg in enumerate(artist['releasegroups']):
         
         logger.info("Now adding/updating: " + rg['title'])
@@ -208,8 +226,9 @@ def addArtisttoDB(artistid, extrasonly=False):
         
         # check if the album already exists
         rg_exists = myDB.selectOne("SELECT * from albums WHERE AlbumID=?", [rg['id']])
-                    
+        mb0 = time.time()     
         releases = mb.get_all_releases(rgid,includeExtras)
+        mb1 = mb1 + time.time() - mb0
         if releases == []:
             logger.info('No official releases in release group %s' % rg['title'])
             continue
@@ -221,11 +240,13 @@ def addArtisttoDB(artistid, extrasonly=False):
         # This will be used later to build a hybrid release     
         fullreleaselist = []
 
-        # prl = progress.get("Release Group Update",desc="Retrieve releases",mod=__name__,max=len(releases))
+        tm["start releases"] = time.time()
+        
         for release in releases:
         # What we're doing here now is first updating the allalbums & alltracks table to the most
         # current info, then moving the appropriate release into the album table and its associated
         # tracks into the tracks table
+            s0 = time.time()
             controlValueDict = {"ReleaseID" : release['ReleaseID']}
 
             newValueDict = {"ArtistID":         release['ArtistID'],
@@ -246,8 +267,10 @@ def addArtisttoDB(artistid, extrasonly=False):
             newValueDict['Tracks'] = release['Tracks']
             fullreleaselist.append(newValueDict)
             
-            # prt = progress.get("Release Update",desc="Retrieve Tracks",mod=__name__,max=len(release['Tracks']))
+            tprologue = tprologue + time.time() - s0
+            
             for track in release['Tracks']:
+                s1 = time.time()
                 cleanname = helpers.cleanName(artist['artist_name'] + ' ' + rg['title'] + ' ' + track['title'])
         
                 controlValueDict = {"TrackID":      track['id'],
@@ -263,26 +286,40 @@ def addArtisttoDB(artistid, extrasonly=False):
                                 "TrackNumber":      track['number'],
                                 "CleanName":        cleanname
                             }
-                            
+                        
+                s2 = time.time()    
                 match = myDB.selectOne('SELECT Location, BitRate, Format from have WHERE CleanName=?', [cleanname])
             
                 if not match:
                     match = myDB.selectOne('SELECT Location, BitRate, Format from have WHERE ArtistName LIKE ? AND AlbumTitle LIKE ? AND TrackTitle LIKE ?', [artist['artist_name'], rg['title'], track['title']])
                 if not match:
-                    match = myDB.selectOne('SELECT Location, BitRate, Format from have WHERE TrackID=?', [track['id']])         
+                    match = myDB.selectOne('SELECT Location, BitRate, Format from have WHERE TrackID=?', [track['id']])      
+                s3 = time.time()   
                 if match:
                     newValueDict['Location'] = match['Location']
                     newValueDict['BitRate'] = match['BitRate']
                     newValueDict['Format'] = match['Format']
                     myDB.update('UPDATE have SET Matched="True" WHERE Location=?', [match['Location']])
-                                
+                s4 = time.time()
                 myDB.upsert("alltracks", newValueDict, controlValueDict)
                 
-                #update progress for tracks
-                #prt.update(idx,track['title'])
+                ttime = ttime + time.time() - s1
+                tdb = tdb + time.time() - s2
+                tselect = tselect + s3 - s2
+                tupdate = tupdate + s4 - s3
+                tupsert = tupsert + time.time() - s4
+                tcnt = tcnt + 1
                 
-            # update progress for release group
-            # prl.update(idx,release['AlbumTitle'])
+        tm["cum releases"] = ttime
+        tm["cum db"] = tdb
+        tm["cum select"] = tselect
+        tm["cum update"] = tupdate
+        tm["cum upsert"] = tupsert
+        tm["no releases"] = tcnt
+        tm["prologue"] = tprologue
+        tm["mb releases"] = mb1
+         
+        tm["end releases"] = time.time()
 
         # Basically just do the same thing again for the hybrid release
         # This may end up being called with an empty fullreleaselist
@@ -309,6 +346,7 @@ def addArtisttoDB(artistid, extrasonly=False):
                     
         myDB.upsert("allalbums", newValueDict, controlValueDict)
         
+        h1 = time.time()
         # prt = progress.get("Release Update",desc="Retrieve Tracks (hybrid release)",mod=__name__,max=len(hybridrelease['Tracks']))
         for track in hybridrelease['Tracks']:
             cleanname = helpers.cleanName(artist['artist_name'] + ' ' + rg['title'] + ' ' + track['title'])
@@ -342,6 +380,9 @@ def addArtisttoDB(artistid, extrasonly=False):
             myDB.upsert("alltracks", newValueDict, controlValueDict)
             # update progress
             # prt.update(idx,track['title'])
+        
+        htotal = time.time() - h1
+        tm["hybrid total"] = htotal
         
         # Delete matched tracks from the have table
         myDB.delete('DELETE from have WHERE Matched="True"')
@@ -404,6 +445,9 @@ def addArtisttoDB(artistid, extrasonly=False):
         myDB.upsert("albums", newValueDict, controlValueDict)
 
         myDB.delete('DELETE from tracks WHERE AlbumID=?', [rg['id']])
+
+        h2 = time.time()
+        
         tracks = myDB.select('SELECT * from alltracks WHERE ReleaseID=?', [releaseid])
 
         # This is used to see how many tracks you have from an album - to mark it as downloaded. Default is 80%, can be set in config as ALBUM_COMPLETION_PCT
@@ -433,6 +477,8 @@ def addArtisttoDB(artistid, extrasonly=False):
         # Mark albums as downloaded if they have at least 80% (by default, configurable) of the album
         have_track_count = myDB.selectOne('SELECT count(*) as cnt from tracks WHERE AlbumID=? AND Location IS NOT NULL', [rg['id']])['cnt']
         marked_as_downloaded = False
+        mtotal = mtotal + time.time() - h2
+        tm["pass3 total"] = mtotal
         
         if rg_exists:
             if rg_exists['Status'] == 'Skipped' and ((have_track_count/float(total_track_count)) >= (headphones.ALBUM_COMPLETION_PCT/100.0)):
@@ -453,6 +499,9 @@ def addArtisttoDB(artistid, extrasonly=False):
             
         # update progress
         pr.update(idx,rg['title'])
+
+    tm["end releasegroups"]=time.time()
+
 
     latestalbum = myDB.selectOne('SELECT AlbumTitle, ReleaseDate, AlbumID from albums WHERE ArtistID=? order by ReleaseDate DESC', [artistid])
     totaltracks = len(myDB.select('SELECT TrackTitle from tracks WHERE ArtistID=?', [artistid]))
@@ -484,6 +533,11 @@ def addArtisttoDB(artistid, extrasonly=False):
         logger.info("Finished updating artist: " + artist['artist_name'] + " but with errors, so not marking it as updated in the database")
     else:
         logger.info(u"Updating complete for: " + artist['artist_name'])
+
+    tm["end"] = time.time()
+    
+    logger.debug("Timing = %s" % str(tm))
+
     
 def addReleaseById(rid):
     

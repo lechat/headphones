@@ -46,8 +46,12 @@ def libraryScan(dir=None, append=False, ArtistID=None, ArtistName=None, cron=Fal
         tracks = myDB.select('SELECT Location, TrackID from tracks WHERE Location IS NOT NULL')
     
         for track in tracks:
-            if not os.path.isfile(track['Location'].encode(headphones.SYS_ENCODING)):
-                myDB.update('UPDATE tracks SET Location=?, BitRate=?, Format=? WHERE TrackID=?', [None, None, None, track['TrackID']])
+            # we really don't want any silly codepage errors here.
+            try:
+                if not os.path.isfile(track['Location'].encode(headphones.SYS_ENCODING)):
+                    myDB.update('UPDATE tracks SET Location=?, BitRate=?, Format=? WHERE TrackID=?', [None, None, None, track['TrackID']])
+            except:
+                pass
 
         myDB.delete('DELETE from have')
 
