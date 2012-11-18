@@ -15,7 +15,7 @@
 
 from __future__ import with_statement
 
-import sqlite3, time, os, codecs
+import sqlite3, time, os
 import headphones, csv, unicodecsv
 
 from headphones import logger,db,progress

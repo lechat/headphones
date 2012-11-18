@@ -800,6 +800,22 @@
                  				<a href="http://headphones.codeshy.com/vip" id="vipserver">Get an Account!</a>
                  			</div>
                  		</div>
+                 		
+                        <div class="row">
+							<label>Update mode</label>
+                     	    <select name="update_mode">
+                     	    %for so in ['normal','fast']:
+                     	    	<%
+                     	    	if so == headphones.UPDATE_MODE:
+                     	    		selected = 'selected="selected"'
+                     	    	else:
+                     	    		selected = ''
+                     	    	%>
+                   	    	<option value="${so}" ${selected}>${so}</option>
+                     	    %endfor
+                     	    </select>                            
+                        </div>
+                        
                  	</fieldset>
                  	
 				</td>

@@ -210,6 +210,8 @@ MYSQL_DB = None
 MYSQL_USER = None
 MYSQL_PASS = None
 
+UPDATE_MODE = None
+
 CACHE_SIZEMB = 32
 
 from headphones import databases
@@ -279,7 +281,7 @@ def initialize():
                 ENCODERVBRCBR, ENCODERLOSSLESS, DELETE_LOSSLESS_FILES, PROWL_ENABLED, PROWL_PRIORITY, PROWL_KEYS, PROWL_ONSNATCH, MIRRORLIST, \
                 MIRROR, CUSTOMHOST, CUSTOMPORT, CUSTOMSLEEP, HPUSER, HPPASS, XBMC_ENABLED, XBMC_HOST, XBMC_USERNAME, XBMC_PASSWORD, XBMC_UPDATE, \
                 XBMC_NOTIFY, NMA_ENABLED, NMA_APIKEY, NMA_PRIORITY, NMA_ONSNATCH, SYNOINDEX_ENABLED, ALBUM_COMPLETION_PCT, PREFERRED_BITRATE_HIGH_BUFFER, \
-                PREFERRED_BITRATE_LOW_BUFFER,CACHE_SIZEMB, DB_MODE, MYSQL_SERVER, MYSQL_DB, MYSQL_USER, MYSQL_PASS
+                PREFERRED_BITRATE_LOW_BUFFER,CACHE_SIZEMB, DB_MODE, MYSQL_SERVER, MYSQL_DB, MYSQL_USER, MYSQL_PASS, UPDATE_MODE
                 
         if __INITIALIZED__:
             return False
@@ -458,6 +460,7 @@ def initialize():
         MYSQL_USER = check_setting_str(CFG,'MySql','user','headphones')
         MYSQL_PASS = check_setting_str(CFG,'MySql','password','headphones')
 
+        UPDATE_MODE = check_setting_str(CFG,'Advanced','scanmode','normal')
         CACHE_SIZEMB = check_setting_int(CFG,'Advanced','cache_sizemb',32)
         
         ALBUM_COMPLETION_PCT = check_setting_int(CFG, 'Advanced', 'album_completion_pct', 80)
@@ -774,6 +777,7 @@ def config_write():
     new_config['Advanced'] = {}
     new_config['Advanced']['album_completion_pct'] = ALBUM_COMPLETION_PCT
     new_config['Advanced']['cache_sizemb'] = CACHE_SIZEMB
+    new_config['Advanced']['scanmode'] = UPDATE_MODE
     
     new_config['MySql']= {}
     new_config['MySql']['server'] = MYSQL_SERVER

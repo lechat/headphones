@@ -114,8 +114,8 @@ def addArtistIDListToDB(artistidlist):
     for artistid in artistidlist:
         addArtisttoDB(artistid)
 
-def addArtisttoDB(artistid, extrasonly=False):
-    
+def addArtisttoDB(artistid, extrasonly=False, fast=False):
+
     # Putting this here to get around the circular import. We're using this to update thumbnails for artist/albums
     from headphones import cache
     
@@ -226,6 +226,8 @@ def addArtisttoDB(artistid, extrasonly=False):
         
         # check if the album already exists
         rg_exists = myDB.selectOne("SELECT * from albums WHERE AlbumID=?", [rg['id']])
+        if headphones.UPDATE_MODE == "fast" and fast==True and rg_exists:
+            continue
         mb0 = time.time()     
         releases = mb.get_all_releases(rgid,includeExtras)
         mb1 = mb1 + time.time() - mb0

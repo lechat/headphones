@@ -28,7 +28,7 @@ def dbUpdate():
     
     for idx,artist in enumerate(activeartists):
         artistid = artist['ArtistID']
-        importer.addArtisttoDB(artistid)
+        importer.addArtisttoDB(artistid, False,True)
         p.update(idx,artist['ArtistName'])
     
     p.message = "complete"

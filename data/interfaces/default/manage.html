@@ -41,7 +41,7 @@
 			<li><a href="#tabs-4">Show Progress</a></li>
 		</ul>
 		
-		<div id="tabs-5" class="configtable">
+		<div id="tabs-5">
 			<legend>Artist statistics:</legend>
 			<%
 				now = time.localtime(time.time())
@@ -58,7 +58,7 @@
 									           COUNT(*) as oldAll \
 									           FROM artists")
 			%>
-			<table>
+			<table width="100%">
 				<thead>
 					<th width="40%"></th><th width="25%">Active Artists</th><th width="25%">Paused Artists</th><th width="10%">Commands</th>
 				</thead>
@@ -92,16 +92,16 @@
 			</table>
 		</div>		
 		
-		<div id="tabs-4" class="configtable">
+		<div id="tabs-4">
 			<legend>Currently active processes:</legend>
 			<div class="row">
 			<%
 				progress.check()
 				progress.lock()
 			%>
-			<table>
+			<table width="100%">
 			<thead>
-				<th>Name</th><th>Count</th><th>Elapsed Time</th><th>Perc. Complete</th><th>Estimated Time</th>
+				<th>Name</th><th>Count</th><th>Elapsed Time</th><th>ETC</th>
 			</thead>
 			</thead>
 			%for p in progress.progressData:
@@ -112,10 +112,9 @@
 					%>
 					<tr>
 						<td><div>${p.name} (${p.threadID})</div><small>${p.description}</small></td>
-						<td><span title="${stats['pct']}"><span><div class="progress-container"><div style="width:${stats['pct']}%"><div class="havetracks">${stats['cnt']}</div></div></div></td>
-						<td>${stats['elapsed']}</td>
-						<td>${stats['pct']}</td>
-						<td>${stats['estimate']}</td>
+						<td style="width:100px;"><span title="${stats['pct']}"><span><div class="progress-container"><div style="width:${stats['pct']}%"><div class="havetracks">${stats['cnt']}</div></div></div></td>
+						<td align="center">${int(stats['elapsed']/60)}:${int(stats['elapsed']%60)}</td>
+						<td align="center">${stats['estimate']}</td>
 					</tr>
 				%endif
 			%endfor

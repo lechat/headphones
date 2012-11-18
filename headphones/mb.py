@@ -158,12 +158,25 @@ def getArtist(artistid, extrasonly=False):
         
         try:
             limit = 200
-            artist = musicbrainzngs.get_artist_by_id(artistid)['artist']
-            newRgs = None
-            artist['release-group-list'] = []
-            while newRgs == None or len(newRgs) >= limit:
-                newRgs = musicbrainzngs.browse_release_groups(artistid,release_type="album",offset=len(artist['release-group-list']),limit=limit)['release-group-list'] 
-                artist['release-group-list'] += newRgs
+            # optimiztaion: limit no. of calls to musicbrainz by requesting releasegroup list in artist call
+            # response gives up to 25 releasegroups, if we get less than that, we can skip the extra call to browse_release_groups
+            # this should save a little bit of overhead
+            
+            # include release group list in artist response, limit to albums
+            resp = musicbrainzngs.get_artist_by_id(artistid,includes=['release-groups'],release_type="album")
+            artist = resp['artist']
+            rgl = resp['release-group-list']
+            if len(rgl) <= 20:
+                # if we get 20 or less, this is the full release group list. 
+                artist['release-group-list'] = resp['release-group-list']
+            else:
+                # if we get more than 20, we do a browse loop
+                newRgs = None
+                artist['release-group-list'] = []
+                while newRgs == None or len(newRgs) >= limit:
+                    newRgs = musicbrainzngs.browse_release_groups(artistid,release_type="album",offset=len(artist['release-group-list']),limit=limit)
+                    newRgs = newRgs['release-group-list']
+                    artist['release-group-list'] += newRgs
         except WebServiceError, e:
             logger.warn('Attempt to retrieve artist information from MusicBrainz failed for artistid: %s (%s)' % (artistid, str(e))) 
             time.sleep(5)

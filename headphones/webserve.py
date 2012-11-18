@@ -441,11 +441,11 @@ class WebInterface(object):
         rows = filtered[iDisplayStart:(iDisplayStart+iDisplayLength)]
         rows = [[row[0],row[2],row[1]] for row in rows]
 
-        dict = {'iTotalDisplayRecords':len(filtered),
+        rdict = {'iTotalDisplayRecords':len(filtered),
                 'iTotalRecords':len(headphones.LOG_LIST),
                 'aaData':rows,
                 }
-        s = simplejson.dumps(dict)
+        s = simplejson.dumps(rdict)
         return s
     getLog.exposed = True
 
@@ -712,6 +712,7 @@ class WebInterface(object):
                     "server_user":headphones.MYSQL_USER,
                     "server_pass":headphones.MYSQL_PASS,
                     "db_list":databases.getDBList(),
+                    "update_mode":headphones.UPDATE_MODE,
                 }
             
         # Need to convert EXTRAS to a dictionary we can pass to the config: it'll come in as a string like 2,5,6,8
@@ -745,7 +746,7 @@ class WebInterface(object):
         delete_lossless_files=0, prowl_enabled=0, prowl_onsnatch=0, prowl_keys=None, prowl_priority=0, xbmc_enabled=0, xbmc_host=None, xbmc_username=None, xbmc_password=None, 
         xbmc_update=0, xbmc_notify=0, nma_enabled=False, nma_apikey=None, nma_priority=0, nma_onsnatch=0, synoindex_enabled=False, mirror=None, customhost=None, customport=None, 
         customsleep=None, hpuser=None, hppass=None, preferred_bitrate_high_buffer=None, preferred_bitrate_low_buffer=None, cache_sizemb=None, dbtype=None,
-        server_name=None, database_name=None, server_user=None, server_pass=None, **kwargs):
+        server_name=None, database_name=None, server_user=None, server_pass=None, update_mode=None, **kwargs):
 
         headphones.HTTP_HOST = http_host
         headphones.HTTP_PORT = http_port
@@ -850,6 +851,7 @@ class WebInterface(object):
         headphones.HPUSER = hpuser
         headphones.HPPASS = hppass
         headphones.CACHE_SIZEMB = int(cache_sizemb)
+        headphones.UPDATE_MODE = update_mode
 
         old_mode = headphones.DB_MODE        
         headphones.DB_MODE = dbtype
