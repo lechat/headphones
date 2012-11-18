@@ -9,6 +9,7 @@ The current version adds:
 * database check and clean for sqllite
 * progress display for long running/background jobs
 * artist management functions (e.g. pause resume artists with no last album etc.)
+* optional fast database update for large libaries
 * various performance tweaks
 
 Next on the list:
