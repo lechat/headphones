@@ -21,7 +21,7 @@ from headphones import logger, version
 import lib.simplejson as simplejson
 
 user = "majello"
-branch = "master"
+branch = "performance"
 
 def runGit(args):
 
