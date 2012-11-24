@@ -17,6 +17,10 @@ Next on the list:
 * add management functions to take advantage of this information
 * change manageArtists to allow filtering by automanage options
 
+Long term plans:
+* include tracks from the library that are currently not shown (don't always rely on musicbrainz)
+* include spydaap to share with itunes (maybe, spydaap will need updates to work with current iTunes)
+
 ###Installation and Notes
 
 This is a relatively early release of a third-party add-on for SABnzbd. It's been around for about a year, and while
