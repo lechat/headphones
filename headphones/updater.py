@@ -13,21 +13,23 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Headphones.  If not, see <http://www.gnu.org/licenses/>.
 
-import headphones
-
-from headphones import logger, db, importer
+from headphones import logger, databases, importer, progress
 
 def dbUpdate():
-
-    myDB = db.DBConnection()
+    
+    myDB = databases.getDBConnection()
 
     activeartists = myDB.select('SELECT ArtistID, ArtistName from artists WHERE Status="Active" or Status="Loading" order by LastUpdated ASC')
 
     logger.info('Starting update for %i active artists' % len(activeartists))
     
-    for artist in activeartists:
+    p = progress.get("Database Update",desc="Update artists",mod=__name__,max=len(activeartists))
+    p.message = "in progress"
     
-        artistid = artist[0]
-        importer.addArtisttoDB(artistid)
-        
+    for idx,artist in enumerate(activeartists):
+        artistid = artist['ArtistID']
+        importer.addArtisttoDB(artistid, False,True)
+        p.update(idx,artist['ArtistName'])
+    
+    p.message = "complete"
     logger.info('Update complete')

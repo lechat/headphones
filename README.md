@@ -1,5 +1,26 @@
 #![preview thumb](https://github.com/rembo10/headphones/raw/master/data/images/headphoneslogo.png)Headphones
 
+###Notes
+This is a fork of Headphones by rembo10. I intend to provide database connectivity beyond sqlite and various optimizations, improvements.
+The current version adds:
+* mySQL connectivity
+* Export to CSV for mySQL and sqllite
+* migration between sqllite and mysql
+* database check and clean for sqllite
+* progress display for long running/background jobs
+* artist management functions (e.g. pause resume artists with no last album etc.)
+* optional fast database update for large libaries
+* various performance tweaks
+
+Next on the list:
+* expand DB schema to include founded and dissolved information
+* add management functions to take advantage of this information
+* change manageArtists to allow filtering by automanage options
+
+Long term plans:
+* include tracks from the library that are currently not shown (don't always rely on musicbrainz)
+* include spydaap to share with itunes (maybe, spydaap will need updates to work with current iTunes)
+
 ###Installation and Notes
 
 This is a relatively early release of a third-party add-on for SABnzbd. It's been around for about a year, and while

@@ -15,7 +15,7 @@
 
 import headphones
 
-from headphones import db, mb, importer, searcher, cache, postprocessor, versioncheck, logger
+from headphones import db, mb, importer, searcher, cache, postprocessor, versioncheck, logger,databases
 
 import lib.simplejson as simplejson
 from xml.dom.minidom import Document
@@ -97,7 +97,7 @@ class Api(object):
         
     def _dic_from_query(self,query):
     
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         rows = myDB.select(query)
         
         rows_as_dic = []
@@ -204,10 +204,10 @@ class Api(object):
         else:
             self.id = kwargs['id']
             
-        myDB = db.DBConnection()
-        myDB.action('DELETE from artists WHERE ArtistID="' + self.id + '"')
-        myDB.action('DELETE from albums WHERE ArtistID="' + self.id + '"')
-        myDB.action('DELETE from tracks WHERE ArtistID="' + self.id + '"')
+        myDB = databases.getDBConnection()
+        myDB.delete('DELETE from artists WHERE ArtistID="' + self.id + '"')
+        myDB.delete('DELETE from albums WHERE ArtistID="' + self.id + '"')
+        myDB.delete('DELETE from tracks WHERE ArtistID="' + self.id + '"')
         
     def _pauseArtist(self, **kwargs):
         if 'id' not in kwargs:
@@ -216,7 +216,7 @@ class Api(object):
         else:
             self.id = kwargs['id']
             
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         controlValueDict = {'ArtistID': self.id}
         newValueDict = {'Status': 'Paused'}
         myDB.upsert("artists", newValueDict, controlValueDict)
@@ -228,7 +228,7 @@ class Api(object):
         else:
             self.id = kwargs['id']
             
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         controlValueDict = {'ArtistID': self.id}
         newValueDict = {'Status': 'Active'}
         myDB.upsert("artists", newValueDict, controlValueDict)
@@ -265,7 +265,7 @@ class Api(object):
         else:
             lossless = False
             
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         controlValueDict = {'AlbumID': self.id}
         if lossless:
             newValueDict = {'Status': 'Wanted Lossless'}
@@ -282,7 +282,7 @@ class Api(object):
         else:
             self.id = kwargs['id']
             
-        myDB = db.DBConnection()
+        myDB = databases.getDBConnection()
         controlValueDict = {'AlbumID': self.id}
         newValueDict = {'Status': 'Skipped'}
         myDB.upsert("albums", newValueDict, controlValueDict)

@@ -14,18 +14,18 @@
 #  along with Headphones.  If not, see <http://www.gnu.org/licenses/>.
 
 import headphones
-from headphones import db, logger
+from headphones import db, logger, databases
 
 def switch(AlbumID, ReleaseID):
     '''
     Takes the contents from allalbums & alltracks (based on ReleaseID) and switches them into
     the albums & tracks table.
     '''
-    myDB = db.DBConnection()
-    oldalbumdata = myDB.action('SELECT * from albums WHERE AlbumID=?', [AlbumID]).fetchone()
-    newalbumdata = myDB.action('SELECT * from allalbums WHERE ReleaseID=?', [ReleaseID]).fetchone()
-    newtrackdata = myDB.action('SELECT * from alltracks WHERE ReleaseID=?', [ReleaseID]).fetchall()
-    myDB.action('DELETE from tracks WHERE AlbumID=?', [AlbumID])
+    myDB = databases.getDBConnection()
+    oldalbumdata = myDB.selectOne('SELECT * from albums WHERE AlbumID=?', [AlbumID])
+    newalbumdata = myDB.selectOne('SELECT * from allalbums WHERE ReleaseID=?', [ReleaseID])
+    newtrackdata = myDB.select('SELECT * from alltracks WHERE ReleaseID=?', [ReleaseID])
+    myDB.delete('DELETE from tracks WHERE AlbumID=?', [AlbumID])
 
     controlValueDict = {"AlbumID":  AlbumID}
 
@@ -68,7 +68,7 @@ def switch(AlbumID, ReleaseID):
     have_track_count = len(myDB.select('SELECT * from tracks WHERE AlbumID=? AND Location IS NOT NULL', [AlbumID]))
         
     if oldalbumdata['Status'] == 'Skipped' and ((have_track_count/float(total_track_count)) >= (headphones.ALBUM_COMPLETION_PCT/100.0)):
-        myDB.action('UPDATE albums SET Status=? WHERE AlbumID=?', ['Downloaded', AlbumID])
+        myDB.update('UPDATE albums SET Status=? WHERE AlbumID=?', ['Downloaded', AlbumID])
     
     # Update have track counts on index
     totaltracks = len(myDB.select('SELECT TrackTitle from tracks WHERE ArtistID=?', [newalbumdata['ArtistID']]))

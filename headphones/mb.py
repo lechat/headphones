@@ -19,8 +19,8 @@ import time
 import threading
 
 import headphones
-from headphones import logger, db
-from headphones.helpers import multikeysort, replace_all
+from headphones import logger,databases
+# from headphones.helpers import multikeysort, replace_all
 
 import lib.musicbrainzngs as musicbrainzngs
 from lib.musicbrainzngs import WebServiceError
@@ -158,12 +158,25 @@ def getArtist(artistid, extrasonly=False):
         
         try:
             limit = 200
-            artist = musicbrainzngs.get_artist_by_id(artistid)['artist']
-            newRgs = None
-            artist['release-group-list'] = []
-            while newRgs == None or len(newRgs) >= limit:
-                newRgs = musicbrainzngs.browse_release_groups(artistid,release_type="album",offset=len(artist['release-group-list']),limit=limit)['release-group-list'] 
-                artist['release-group-list'] += newRgs
+            # optimiztaion: limit no. of calls to musicbrainz by requesting releasegroup list in artist call
+            # response gives up to 25 releasegroups, if we get less than that, we can skip the extra call to browse_release_groups
+            # this should save a little bit of overhead
+            
+            # include release group list in artist response, limit to albums
+            resp = musicbrainzngs.get_artist_by_id(artistid,includes=['release-groups'],release_type="album")
+            artist = resp['artist']
+            rgl = resp['release-group-list']
+            if len(rgl) <= 20:
+                # if we get 20 or less, this is the full release group list. 
+                artist['release-group-list'] = resp['release-group-list']
+            else:
+                # if we get more than 20, we do a browse loop
+                newRgs = None
+                artist['release-group-list'] = []
+                while newRgs == None or len(newRgs) >= limit:
+                    newRgs = musicbrainzngs.browse_release_groups(artistid,release_type="album",offset=len(artist['release-group-list']),limit=limit)
+                    newRgs = newRgs['release-group-list']
+                    artist['release-group-list'] += newRgs
         except WebServiceError, e:
             logger.warn('Attempt to retrieve artist information from MusicBrainz failed for artistid: %s (%s)' % (artistid, str(e))) 
             time.sleep(5)
@@ -187,13 +200,13 @@ def getArtist(artistid, extrasonly=False):
         #artist_dict['artist_uniquename'] = uniquename
         #artist_dict['artist_type'] = unicode(artist['type'])
 
-        #artist_dict['artist_begindate'] = None
-        #artist_dict['artist_enddate'] = None
-        #if 'life-span' in artist:
-        #    if 'begin' in artist['life-span']:
-        #        artist_dict['artist_begindate'] = unicode(artist['life-span']['begin'])
-        #    if 'end' in artist['life-span']:
-        #        artist_dict['artist_enddate'] = unicode(artist['life-span']['end'])      
+        artist_dict['artist_begindate'] = None
+        artist_dict['artist_enddate'] = None
+        if 'life-span' in artist:
+            if 'begin' in artist['life-span']:
+                artist_dict['artist_begindate'] = unicode(artist['life-span']['begin'])
+            if 'end' in artist['life-span']:
+                artist_dict['artist_enddate'] = unicode(artist['life-span']['end'])      
 
 
         releasegroups = []
@@ -211,10 +224,10 @@ def getArtist(artistid, extrasonly=False):
                 
         # See if we need to grab extras. Artist specific extras take precedence over global option
         # Global options are set when adding a new artist
-        myDB = db.DBConnection()
-
+        myDB = databases.getDBConnection()
+        
         try:
-            db_artist = myDB.action('SELECT IncludeExtras, Extras from artists WHERE ArtistID=?', [artistid]).fetchone()
+            db_artist = myDB.selectOne('SELECT IncludeExtras, Extras from artists WHERE ArtistID=?', [artistid])
             includeExtras = db_artist['IncludeExtras']
         except IndexError:
             includeExtras = False
@@ -407,9 +420,9 @@ def getTracksFromRelease(release):
 # Used when there is a disambiguation
 def findArtistbyAlbum(name):
 
-    myDB = db.DBConnection()
-    
-    artist = myDB.action('SELECT AlbumTitle from have WHERE ArtistName=? AND AlbumTitle IS NOT NULL ORDER BY RANDOM()', [name]).fetchone()
+    myDB = databases.getDBConnection()
+        
+    artist = myDB.selectOne('SELECT AlbumTitle from have WHERE ArtistName=? AND AlbumTitle IS NOT NULL ORDER BY RANDOM()', [name])
     
     if not artist:
         return False

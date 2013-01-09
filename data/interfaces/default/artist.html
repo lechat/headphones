@@ -1,6 +1,6 @@
 <%inherit file="base.html"/>
 <%!
-	from headphones import db
+	from headphones import db, databases
 	import headphones
 	import string
 %>
@@ -80,6 +80,18 @@
 			</tr>
 		</thead>
 		<tbody>
+		<%
+			myDB = databases.getDBConnection()
+			r = myDB.select('SELECT AlbumID, COUNT(*) as total, SUM(CASE WHEN Location IS NOT NULL THEN 1 ELSE 0 END) as have, \
+			                 AVG(BitRate) as bitrate, \
+			                 MAX(Format) as trackformat, \
+			                 COUNT(DISTINCT Format) as formats \
+			                 FROM tracks WHERE ArtistID=? GROUP BY AlbumID',[artist['ArtistID']])
+			trackStats = dict([(x['AlbumID'],x) for x in r])
+			
+				
+		%>
+		<!-- ${trackStats} -->
 		%for album in albums:
 			<%
 				if album['Status'] == 'Skipped':
@@ -91,10 +103,21 @@
 				else:
 					grade = 'A'
 
-				myDB = db.DBConnection()					
-				totaltracks = len(myDB.select('SELECT TrackTitle from tracks WHERE AlbumID=?', [album['AlbumID']]))
-				havetracks = len(myDB.select('SELECT TrackTitle from tracks WHERE AlbumID=? AND Location IS NOT NULL', [album['AlbumID']])) + len(myDB.select('SELECT TrackTitle from have WHERE ArtistName like ? AND AlbumTitle LIKE ?', [album['ArtistName'], album['AlbumTitle']]))
-				
+				totaltracks=None
+				havetracks=None
+				avgbitrate=None
+				albumformatcount=None
+				albumformat = None
+				try:
+					trackinfo = trackStats[album['AlbumID']]
+					totaltracks= trackinfo['total']
+					havetracks= trackinfo['have']
+					avgbitrate = trackinfo['bitrate']
+					albumformatcount = trackinfo['formats']
+					albumformat = trackinfo['trackformat']
+				except:
+					pass
+
 				try:
 					percent = (havetracks*100.0)/totaltracks
 					if percent > 100:
@@ -103,16 +126,12 @@
 					percent = 0
 					totaltracks = '?'
 					
-				avgbitrate = myDB.action("SELECT AVG(BitRate) FROM tracks WHERE AlbumID=?", [album['AlbumID']]).fetchone()[0]
 				if avgbitrate:
 					bitrate = str(int(avgbitrate)/1000) + ' kbps'
 				else:
 					bitrate = ''
 
-				albumformatcount = myDB.action("SELECT COUNT(DISTINCT Format) FROM tracks WHERE AlbumID=?", [album['AlbumID']]).fetchone()[0]
-				if albumformatcount == 1:
-					albumformat = myDB.action("SELECT DISTINCT Format FROM tracks WHERE AlbumID=?", [album['AlbumID']]).fetchone()[0]
-				elif albumformatcount > 1:
+				if albumformatcount > 1:
 					albumformat = 'Mixed'
 				else:
 					albumformat = ''

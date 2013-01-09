@@ -27,8 +27,10 @@ from lib.configobj import ConfigObj
 
 import cherrypy
 
-from headphones import versioncheck, logger, version
+from headphones import versioncheck, logger, version, helpers
 from headphones.common import *
+from headphones import progress
+
 
 FULL_PATH = None
 PROG_DIR = None
@@ -57,6 +59,7 @@ CFG = None
 CONFIG_VERSION = None
 
 DB_FILE = None
+DB_MODE = None
 
 LOG_DIR = None
 LOG_LIST = []
@@ -217,7 +220,17 @@ CUSTOMSLEEP = None
 HPUSER = None
 HPPASS = None
 
+MYSQL_SERVER = None
+MYSQL_DB = None
+MYSQL_USER = None
+MYSQL_PASS = None
+
+UPDATE_MODE = None
+
 CACHE_SIZEMB = 32
+
+from headphones import databases
+from databases import *
 
 def CheckSection(sec):
     """ Check if INI section exists, if not create it """
@@ -307,6 +320,7 @@ def initialize():
         CheckSection('NMA')
         CheckSection('Synoindex')
         CheckSection('Advanced')
+        CheckSection('MySql')
 
         # Set global variables based on config file or use defaults
         CONFIG_VERSION = check_setting_str(CFG, 'General', 'config_version', '0')
@@ -332,6 +346,7 @@ def initialize():
         GIT_BRANCH = check_setting_str(CFG, 'General', 'git_branch', 'master')
         LOG_DIR = check_setting_str(CFG, 'General', 'log_dir', '')
         CACHE_DIR = check_setting_str(CFG, 'General', 'cache_dir', '')
+        DB_MODE = check_setting_str(CFG,'General', 'database','sqliteAdapter')
 
         CHECK_GITHUB = bool(check_setting_int(CFG, 'General', 'check_github', 1))
         CHECK_GITHUB_ON_STARTUP = bool(check_setting_int(CFG, 'General', 'check_github_on_startup', 1))
@@ -419,7 +434,7 @@ def initialize():
         NZBSRUS = bool(check_setting_int(CFG, 'NZBsRus', 'nzbsrus', 0))
         NZBSRUS_UID = check_setting_str(CFG, 'NZBsRus', 'nzbsrus_uid', '')
         NZBSRUS_APIKEY = check_setting_str(CFG, 'NZBsRus', 'nzbsrus_apikey', '')
-        
+
         NZBX = bool(check_setting_int(CFG, 'nzbX', 'nzbx', 0))
 
         LASTFM_USERNAME = check_setting_str(CFG, 'General', 'lastfm_username', '')
@@ -472,6 +487,14 @@ def initialize():
         HPUSER = check_setting_str(CFG, 'General', 'hpuser', '')
         HPPASS = check_setting_str(CFG, 'General', 'hppass', '')
 
+        # we really should isolate this kind of stuff into the database modules
+
+        MYSQL_SERVER = check_setting_str(CFG,'MySql','server','127.0.0.1')
+        MYSQL_DB = check_setting_str(CFG,'MySql','database','headphones')
+        MYSQL_USER = check_setting_str(CFG,'MySql','user','headphones')
+        MYSQL_PASS = check_setting_str(CFG,'MySql','password','headphones')
+
+        UPDATE_MODE = check_setting_str(CFG,'Advanced','scanmode','normal')
         CACHE_SIZEMB = check_setting_int(CFG,'Advanced','cache_sizemb',32)
 
         ALBUM_COMPLETION_PCT = check_setting_int(CFG, 'Advanced', 'album_completion_pct', 80)
@@ -488,7 +511,7 @@ def initialize():
 
         if CONFIG_VERSION == '1':
 
-            from headphones.helpers import replace_all
+            # from headphones.helpers import replace_all
 
             file_values = { 'Track':        '$Track',
                             'Title':        '$Title',
@@ -551,10 +574,12 @@ def initialize():
             logger.info("Search interval too low. Resetting to 6 hour minimum")
             SEARCH_INTERVAL = 360
 
+        db = databases.getDBModule(DB_MODE)
+
         # Initialize the database
         logger.info('Checking to see if the database has all tables....')
         try:
-            dbcheck()
+            db.dbcheck()
         except Exception, e:
             logger.error("Can't connect to the database: %s" % e)
 
@@ -694,6 +719,8 @@ def config_write():
     new_config['General']['mininova'] = int(MININOVA)
     new_config['General']['download_torrent_dir'] = DOWNLOAD_TORRENT_DIR
 
+    new_config['General']['database'] = DB_MODE
+
     new_config['Waffles'] = {}
     new_config['Waffles']['waffles'] = int(WAFFLES)
     new_config['Waffles']['waffles_uid'] = WAFFLES_UID
@@ -753,7 +780,7 @@ def config_write():
     new_config['NZBsRus']['nzbsrus'] = int(NZBSRUS)
     new_config['NZBsRus']['nzbsrus_uid'] = NZBSRUS_UID
     new_config['NZBsRus']['nzbsrus_apikey'] = NZBSRUS_APIKEY
-    
+
     new_config['nzbX'] = {}
     new_config['nzbX']['nzbx'] = int(NZBX)
 
@@ -813,15 +840,26 @@ def config_write():
     new_config['Advanced'] = {}
     new_config['Advanced']['album_completion_pct'] = ALBUM_COMPLETION_PCT
     new_config['Advanced']['cache_sizemb'] = CACHE_SIZEMB
+    new_config['Advanced']['scanmode'] = UPDATE_MODE
+
+    new_config['MySql']= {}
+    new_config['MySql']['server'] = MYSQL_SERVER
+    new_config['MySql']['database'] = MYSQL_DB
+    new_config['MySql']['user'] = MYSQL_USER
+    new_config['MySql']['password'] = MYSQL_PASS
 
     new_config.write()
 
 
 def start():
+<<<<<<< HEAD
 
     global __INITIALIZED__, started
 
     if __INITIALIZED__:
+
+        # initialize process reporting
+        progress.check()
 
         # Start our scheduled background tasks
         from headphones import updater, searcher, librarysync, postprocessor
@@ -838,6 +876,7 @@ def start():
         SCHED.start()
 
         started = True
+<<<<<<< HEAD
 
 def sig_handler(signum=None, frame=None):
     if type(signum) != type(None):
@@ -1016,17 +1055,17 @@ def dbcheck():
         for artist in artists:
             if artist[1]:
                 c.execute('UPDATE artists SET Extras=? WHERE ArtistID=?', ("1,2,3,4,5,6,7,8", artist[0]))
-                
+
     try:
         c.execute('SELECT Kind from snatched')
     except sqlite3.OperationalError:
         c.execute('ALTER TABLE snatched ADD COLUMN Kind TEXT DEFAULT NULL')
-        
+
     try:
         c.execute('SELECT SearchTerm from albums')
     except sqlite3.OperationalError:
         c.execute('ALTER TABLE albums ADD COLUMN SearchTerm TEXT DEFAULT NULL')
-    
+
     conn.commit()
     c.close()
 

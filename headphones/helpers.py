@@ -19,6 +19,7 @@ import datetime
 import re, shutil
 
 import headphones
+import logger
 
 def multikeysort(items, columns):
 
@@ -239,7 +240,7 @@ def extract_song_data(s):
         
 def smartMove(src, dest, delete=True):
     
-    from headphones import logger
+#    from headphones import logger
 
     source_dir = os.path.dirname(src)
     filename = os.path.basename(src)

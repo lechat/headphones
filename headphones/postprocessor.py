@@ -16,7 +16,7 @@
 from __future__ import with_statement
 
 import os
-import time
+# import time
 import threading
 import music_encoder
 import urllib, shutil, re
@@ -26,8 +26,11 @@ import lib.beets as beets
 from lib.beets import autotag
 from lib.beets.mediafile import MediaFile
 
+#import subprocess
+#from subprocess import CalledProcessError
+
 import headphones
-from headphones import db, albumart, librarysync, lyrics, logger, helpers
+from headphones import albumart, librarysync, lyrics, logger, helpers, databases
 from headphones.helpers import sab_replace_dots, sab_replace_spaces
 
 postprocessor_lock = threading.Lock()
@@ -36,7 +39,8 @@ def checkFolder():
     
     with postprocessor_lock:
 
-        myDB = db.DBConnection()
+        # myDB = CalledProcessError
+        myDB = databases.getDBConnection()
         snatched = myDB.select('SELECT * from snatched WHERE Status="Snatched"')
 
         for album in snatched:
@@ -68,8 +72,9 @@ def checkFolder():
 
 def verify(albumid, albumpath, Kind=None):
 
-    myDB = db.DBConnection()
-    release = myDB.action('SELECT * from albums WHERE AlbumID=?', [albumid]).fetchone()
+#    myDB = CalledProcessError
+    myDB = databases.getDBConnection()
+    release = myDB.selectOne('SELECT * from albums WHERE AlbumID=?', [albumid])
     tracks = myDB.select('SELECT * from tracks WHERE AlbumID=?', [albumid])
 
     if not release or not tracks:
@@ -134,7 +139,7 @@ def verify(albumid, albumpath, Kind=None):
         myDB.upsert("albums", newValueDict, controlValueDict)
     
         # Delete existing tracks associated with this AlbumID since we're going to replace them and don't want any extras
-        myDB.action('DELETE from tracks WHERE AlbumID=?', [albumid])
+        myDB.delete('DELETE from tracks WHERE AlbumID=?', [albumid])
         for track in release_dict['tracks']:
         
             controlValueDict = {"TrackID":  track['id'],
@@ -157,7 +162,7 @@ def verify(albumid, albumpath, Kind=None):
         myDB.upsert("artists", newValueDict, controlValueDict)
         logger.info(u"Addition complete for: " + release_dict['title'] + " - " + release_dict['artist_name'])
 
-        release = myDB.action('SELECT * from albums WHERE AlbumID=?', [albumid]).fetchone()
+        release = myDB.selectOne('SELECT * from albums WHERE AlbumID=?', [albumid])
         tracks = myDB.select('SELECT * from tracks WHERE AlbumID=?', [albumid])
     
     downloaded_track_list = []
@@ -189,11 +194,11 @@ def verify(albumid, albumpath, Kind=None):
                 xldfolder = r
                 xldfile = ''
                 xldcue = ''
-                for file in f:
-                    if any(file.lower().endswith('.' + x.lower()) for x in headphones.MEDIA_FORMATS) and not xldfile:
-                        xldfile = os.path.join(r, file)
-                    elif file.lower().endswith('.cue') and not xldcue:
-                        xldcue = os.path.join(r, file)
+                for xfile in f:
+                    if any(xfile.lower().endswith('.' + x.lower()) for x in headphones.MEDIA_FORMATS) and not xldfile:
+                        xldfile = os.path.join(r, xfile)
+                    elif xfile.lower().endswith('.cue') and not xldcue:
+                        xldcue = os.path.join(r, xfile)
             
                 if xldfile and xldcue and xldfolder:
                     xldcmd = xldencoder
@@ -212,8 +217,8 @@ def verify(albumid, albumpath, Kind=None):
         
             new_downloaded_track_list_count = 0
             for r,d,f in os.walk(albumpath):       
-                for file in f:
-                    if any(file.lower().endswith('.' + x.lower()) for x in headphones.MEDIA_FORMATS):
+                for xfile in f:
+                    if any(xfile.lower().endswith('.' + x.lower()) for x in headphones.MEDIA_FORMATS):
                         new_downloaded_track_list_count += 1
         
             if new_downloaded_track_list_count > len(downloaded_track_list):
@@ -221,14 +226,14 @@ def verify(albumid, albumpath, Kind=None):
                 # rename original unsplit files
                 for downloaded_track in downloaded_track_list:
                     os.rename(downloaded_track, downloaded_track + '.original')
-        	
+
                 #reload
     
                 downloaded_track_list = []
                 for r,d,f in os.walk(albumpath):       
-                    for file in f:
-                        if any(file.lower().endswith('.' + x.lower()) for x in headphones.MEDIA_FORMATS):
-                            downloaded_track_list.append(os.path.join(r, file))
+                    for xfile in f:
+                        if any(xfile.lower().endswith('.' + x.lower()) for x in headphones.MEDIA_FORMATS):
+                            downloaded_track_list.append(os.path.join(r, xfile))
 
     # test #1: metadata - usually works
     logger.debug('Verifying metadata...')
@@ -308,7 +313,7 @@ def verify(albumid, albumpath, Kind=None):
                 return
             
     logger.warn(u'Could not identify album: %s. It may not be the intended album.' % albumpath.decode(headphones.SYS_ENCODING, 'replace'))
-    myDB.action('UPDATE snatched SET status = "Unprocessed" WHERE AlbumID=?', [albumid])
+    myDB.update('UPDATE snatched SET status = "Unprocessed" WHERE AlbumID=?', [albumid])
     processed = re.search(r' \(Unprocessed\)(?:\[\d+\])?', albumpath)
     if not processed:
         renameUnprocessedFolder(albumpath)
@@ -373,9 +378,11 @@ def doPostProcessing(albumid, albumpath, release, tracks, downloaded_track_list,
     else:
         albumpaths = [albumpath]
         
-    myDB = db.DBConnection()
-    myDB.action('UPDATE albums SET status = "Downloaded" WHERE AlbumID=?', [albumid])
-    myDB.action('UPDATE snatched SET status = "Processed" WHERE AlbumID=?', [albumid])
+#     myDB = CalledProcessError
+    myDB = databases.getDBConnection()
+
+    myDB.update('UPDATE albums SET status = "Downloaded" WHERE AlbumID=?', [albumid])
+    myDB.update('UPDATE snatched SET status = "Processed" WHERE AlbumID=?', [albumid])
         
     # Update the have tracks for all created dirs:
     for albumpath in albumpaths:
@@ -429,9 +436,9 @@ def addAlbumArt(artwork, albumpath):
     logger.info('Adding album art to folder')
     
     artwork_file_name = os.path.join(albumpath, 'folder.jpg')
-    file = open(artwork_file_name, 'wb')
-    file.write(artwork)
-    file.close()
+    xfile = open(artwork_file_name, 'wb')
+    xfile.write(artwork)
+    xfile.close()
     
 def cleanupFiles(albumpath):
     logger.info('Cleaning up files')
@@ -470,7 +477,7 @@ def moveFiles(albumpath, release, tracks):
                 '$Album':   album,
                 '$Year':        year,
                 '$Type':  releasetype,
-                '$First':   firstchar.upper(),
+                '$First':   firstchar,
                 '$artist':  artist.lower(),
                 '$album':   album.lower(),
                 '$year':        year,
@@ -829,7 +836,9 @@ def forcePostProcess():
         logger.info('Found no folders to process in: %s' % str(download_dirs).decode(headphones.SYS_ENCODING, 'replace'))
 
     # Parse the folder names to get artist album info
-    myDB = db.DBConnection()
+    myDB = databases.getDBConnection()
+    
+#    myDB = CalledProcessError
     
     for folder in folders:
 
@@ -855,7 +864,7 @@ def forcePostProcess():
 
         if name and album and year:
             
-            release = myDB.action('SELECT AlbumID, ArtistName, AlbumTitle from albums WHERE ArtistName LIKE ? and AlbumTitle LIKE ?', [name, album]).fetchone()
+            release = myDB.selectOne('SELECT AlbumID, ArtistName, AlbumTitle from albums WHERE ArtistName LIKE ? and AlbumTitle LIKE ?', [name, album])
             if release:
                 logger.info('Found a match in the database: %s - %s. Verifying to make sure it is the correct album' % (release['ArtistName'], release['AlbumTitle']))
                 verify(release['AlbumID'], folder)
@@ -886,7 +895,7 @@ def forcePostProcess():
             
             if rgid:
                 rgid = possible_rgid
-                release = myDB.action('SELECT ArtistName, AlbumTitle, AlbumID from albums WHERE AlbumID=?', [rgid]).fetchone()
+                release = myDB.selectOne('SELECT ArtistName, AlbumTitle, AlbumID from albums WHERE AlbumID=?', [rgid])
                 if release:
                     logger.info('Found a match in the database: %s - %s. Verifying to make sure it is the correct album' % (release['ArtistName'], release['AlbumTitle']))
                     verify(release['AlbumID'], folder)

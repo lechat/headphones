@@ -1,6 +1,8 @@
 <%inherit file="base.html" />
 <%!
 	import headphones
+	import time
+	from headphones import progress,databases
 	from headphones.helpers import checked
 %>
 <%def name="headerIncludes()">
@@ -33,9 +35,95 @@
 	<div id="tabs">
 		<ul>
 			<li><a href="#tabs-1">Scan Music Library</a></li>
+			<li><a href="#tabs-5">Artists Statistics</a></li>
 			<li><a href="#tabs-2">Imports</a></li>
 			<li><a href="#tabs-3">Force Actions</a></li>
+			<li><a href="#tabs-4">Show Progress</a></li>
 		</ul>
+		
+		<div id="tabs-5">
+			<legend>Artist statistics:</legend>
+			<%
+				now = time.localtime(time.time())
+				p5 = str(now.tm_year - 5) + "-" + str(now.tm_mon) + "-" + str(now.tm_mday)
+				p10 = str(now.tm_year - 10) + "-" + str(now.tm_mon) + "-" + str(now.tm_mday)
+				
+				myDB = databases.getDBConnection()
+				stats = myDB.selectOne("SELECT SUM(CASE WHEN (releasedate is NULL or releasedate = '') and Status = 'Active' THEN 1 ELSE 0 END) as oldNone, \
+						                       SUM(CASE WHEN (releasedate is NULL or releasedate = '') and Status != 'Active' THEN 1 ELSE 0 END) as oldNoneP, \
+									           SUM(CASE WHEN releasedate < '" + p10 + "' and Status = 'Active' THEN 1 ELSE 0 END) AS old10, \
+									           SUM(CASE WHEN releasedate < '" + p10 + "' and Status != 'Active' THEN 1 ELSE 0 END) AS old10P, \
+									           SUM(CASE WHEN releasedate < '" + p5 + "' and Status = 'Active' THEN 1 ELSE 0 END) AS old5, \
+									           SUM(CASE WHEN releasedate < '" + p5 + "' and Status != 'Active' THEN 1 ELSE 0 END) AS old5P, \
+									           COUNT(*) as oldAll \
+									           FROM artists")
+			%>
+			<table width="100%">
+				<thead>
+					<th width="40%"></th><th width="25%">Active Artists</th><th width="25%">Paused Artists</th><th width="10%">Commands</th>
+				</thead>
+				<tr>
+					<td>No last album:</td><td>${stats['oldNone']}</td><td>${stats['oldNoneP']}</td>
+					<td>
+						<a href="#" onclick="doAjaxCall('autoManage?atype=None&effect=pause',$(this),'tabs');return false;" data-success="Artists paused"><span class="ui-icon ui-icon-pause"></span></a>
+						<a href="#" onclick="doAjaxCall('autoManage?atype=None&effect=resume',$(this),'tabs');return false;" data-success="Artists resumed"><span class="ui-icon ui-icon-play"></span></a>
+					</td>
+				<tr>
+					<td>Last album before ${p10}</td><td>${stats['old10']}</td><td>${stats['old10P']}</td>
+					<td>
+						<a href="#" onclick="doAjaxCall('autoManage?atype=y10&effect=pause',$(this),'tabs');return false;" data-success="Artists paused"><span class="ui-icon ui-icon-pause"></span></a>
+						<a href="#" onclick="doAjaxCall('autoManage?atype=y10&effect=resume',$(this),'tabs');return false;" data-success="Artists resumed"><span class="ui-icon ui-icon-play"></span></a>
+					</td>
+				</tr>
+				<tr>
+					<td>Last album before ${p5}</td><td>${stats['old5']}</td><td>${stats['old5P']}</td>
+					<td>
+						<a href="#" onclick="doAjaxCall('autoManage?atype=y5&effect=pause',$(this),'tabs');return false;" data-success="Artists paused"><span class="ui-icon ui-icon-pause"></span></a>
+						<a href="#" onclick="doAjaxCall('autoManage?atype=y5&effect=resume',$(this),'tabs');return false;" data-success="Artists resumed"><span class="ui-icon ui-icon-play"></span></a>
+					</td>
+				</tr>
+				<tr>
+					<td>Total</td><td>${stats['oldAll']}</td><td></td>
+					<td>
+						<a href="#" onclick="doAjaxCall('autoManage?atype=All&effect=pause',$(this),'tabs');return false;" data-success="Artists paused"><span class="ui-icon ui-icon-pause"></span></a>
+						<a href="#" onclick="doAjaxCall('autoManage?atype=All&effect=resume',$(this),'tabs');return false;" data-success="Artists resumed"><span class="ui-icon ui-icon-play"></span></a>
+					</td>
+				</tr>
+			</table>
+		</div>		
+		
+		<div id="tabs-4">
+			<legend>Currently active processes:</legend>
+			<div class="row">
+			<%
+				progress.check()
+				progress.lock()
+			%>
+			<table width="100%">
+			<thead>
+				<th>Name</th><th>Count</th><th>Elapsed Time</th><th>ETC</th>
+			</thead>
+			</thead>
+			%for p in progress.progressData:
+				%if p.name <> None:
+					<%
+						x=1
+						stats=p.stats()
+					%>
+					<tr>
+						<td><div>${p.name} (${p.threadID})</div><small>${p.description}</small></td>
+						<td style="width:100px;"><span title="${stats['pct']}"><span><div class="progress-container"><div style="width:${stats['pct']}%"><div class="havetracks">${stats['cnt']}</div></div></div></td>
+						<td align="center">${int(stats['elapsed']/60)}:${int(stats['elapsed']%60)}</td>
+						<td align="center">${stats['estimate']}</td>
+					</tr>
+				%endif
+			%endfor
+			</table>
+			<%
+				progress.unlock()
+			%>
+			</div>
+		</div>
 		<div id="tabs-1" class="configtable">
 			<fieldset>
 				<form action="musicScan" method="GET" id="musicScan">
@@ -121,6 +209,7 @@
 				<a href="#" onclick="doAjaxCall('forceSearch',$(this))" data-success="Checking for wanted albums successful" data-error="Error checking wanted albums"><span class="ui-icon ui-icon-search"></span>Force Check for Wanted Albums</a>
 				<a href="#" onclick="doAjaxCall('forceUpdate',$(this))" data-success="Update active artists successful" data-error="Error forcing update artists"><span class="ui-icon ui-icon-heart"></span>Force Update Active Artists</a>
 				<a href="#" onclick="doAjaxCall('forcePostProcess',$(this))" data-success="Post-Processor is being loaded" data-error="Error during Post-Processing"><span class="ui-icon ui-icon-wrench"></span>Force Post-Process Albums in Download Folder</a>
+				<a href="#" onclick="doAjaxCall('checkDB',$(this))" data-success="Checking Database..." data-error="Error starting DB check"><span class="ui-icon ui-icon-gear"></span>Check database</a>
 				<a href="#" onclick="doAjaxCall('checkGithub',$(this))" data-success="Checking for update successful" data-error="Error checking for update"><span class="ui-icon ui-icon-refresh"></span>Check for Headphones Updates</a>
 				<a href="#" id="delete_empty_artists"><span class="ui-icon ui-icon-trash"></span>Delete empty Artists</a>
 					<div id="emptyartistdialog" title="Confirm Artist Deletion" style="display:none" class="configtable">
