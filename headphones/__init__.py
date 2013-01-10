@@ -852,8 +852,6 @@ def config_write():
 
 
 def start():
-<<<<<<< HEAD
-
     global __INITIALIZED__, started
 
     if __INITIALIZED__:
@@ -876,7 +874,6 @@ def start():
         SCHED.start()
 
         started = True
-<<<<<<< HEAD
 
 def sig_handler(signum=None, frame=None):
     if type(signum) != type(None):
