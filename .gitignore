@@ -55,4 +55,4 @@ _ReSharper*/
 /logs
 .project
 .pydevproject
-.idea
+.idea/
