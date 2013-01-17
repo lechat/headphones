@@ -20,11 +20,11 @@ import headphones
 import mysql.connector, csv, os
 from mysql.connector import errorcode
 from headphones import logger, progress
-from headphones.databases.AbstractAdapter import DBConnection
+from headphones.databases.AbstractAdapter import DBConnectionInterface
 
-class MysqlDBConnection(DBConnection):
+class DBConnection(DBConnectionInterface):
     def __init__(self):
-        super(MysqlDBConnection, self).__init__()
+        super(DBConnection, self).__init__()
         self.connection = None
         self.dbNiceName = 'MYSQL'
         #

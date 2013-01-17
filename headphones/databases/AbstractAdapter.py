@@ -2,7 +2,7 @@ import headphones
 
 __author__ = 'aleksey'
 
-class DBConnection(object):
+class DBConnectionInterface(object):
     def __init__(self):
         if not headphones.CACHE_SIZEMB:
             #sqlite will work with this (very slowly)

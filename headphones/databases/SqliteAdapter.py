@@ -20,11 +20,11 @@ import sqlite3, time, os
 import headphones, csv, unicodecsv
 
 from headphones import logger, progress
-from headphones.databases.AbstractAdapter import DBConnection
+from headphones.databases.AbstractAdapter import DBConnectionInterface
 
-class SqliteDBConnection(DBConnection):
+class DBConnection(DBConnectionInterface):
     def __init__(self, filename=headphones.DB_FILE):
-        super(SqliteDBConnection, self).__init__()
+        super(DBConnection, self).__init__()
         self.filename = filename
         self.connection = sqlite3.connect(os.path.join(headphones.DATA_DIR, self.filename), timeout=20)
         #don't wait for the disk to finish writing

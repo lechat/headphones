@@ -230,7 +230,7 @@ UPDATE_MODE = None
 CACHE_SIZEMB = 32
 
 from headphones import databases
-from databases import *
+# from databases import *
 
 def CheckSection(sec):
     """ Check if INI section exists, if not create it """

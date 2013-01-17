@@ -14,8 +14,8 @@
 #  along with Headphones.  If not, see <http://www.gnu.org/licenses/>.
 
 import threading
-from headphones.databases import getDBConnectionByType, getDBConnection
-from headphones import progress,logger
+from headphones.databases import getDBConnection
+from headphones import progress, logger
 
 mig_lock = threading.Lock()
 
