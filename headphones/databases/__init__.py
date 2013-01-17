@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Sick Beard.  If not, see <http://www.gnu.org/licenses/>.
 
-__all__ = [ "dbMigration", "mysqlAdapter", "sqliteAdapter"]
+__all__ = [ "dbMigration", "Mysql", "Sqlite"]
 
 import headphones
 from os import sys
@@ -21,25 +21,21 @@ from os import sys
 def getDBModule(name):
 #    name=name.lower()
     prefix = 'headphones.databases.'
-    fullname = prefix + name
+    fullname = prefix + name + 'Adapter'
     if fullname in sys.modules:
         return sys.modules[fullname]
     else:
         raise Exception("Can't find %s in %s" % (fullname, repr(sys.modules)))
     
-def getDBConnection():
-    module = getDBModule(headphones.DB_MODE)
-    return module.DBConnection()
-
-def getDBConnectionByType(dbtype):
-    module = getDBModule(dbtype)
-    return module.DBConnection()
+def getDBConnection(db_type=headphones.DB_MODE):
+    module = getDBModule(db_type)
+    class_name = db_type + 'DBConnection'
+    return module.class_name()
 
 def getDBList():
-    l = []
-    for m in __all__:
-        if m.endswith("Adapter"):
-            mod =  getDBModule(m)
-            name = mod.dbNiceName()
-            l.append([m,name])
-    return l
+    databases = []
+    for db_module in __all__:
+        mod =  getDBConnection(db_module)
+        name = mod.dbNiceName()
+        databases.append([db_module, name])
+    return databases

@@ -878,14 +878,14 @@ class WebInterface(object):
         headphones.HPUSER = hpuser
         headphones.HPPASS = hppass
         headphones.CACHE_SIZEMB = int(cache_sizemb)
-        headphones.UPDATE_MODE = update_mode
+        headphones.UPDATE_MODE = kwargs['update_mode']
 
         old_mode = headphones.DB_MODE
-        headphones.DB_MODE = dbtype
-        headphones.MYSQL_SERVER = server_name
-        headphones.MYSQL_DB = database_name
-        headphones.MYSQL_USER = server_user
-        headphones.MYSQL_PASS = server_pass
+        headphones.DB_MODE = kwargs['dbtype']
+        headphones.MYSQL_SERVER = kwargs['server_name']
+        headphones.MYSQL_DB = kwargs['database_name']
+        headphones.MYSQL_USER = kwargs['server_user']
+        headphones.MYSQL_PASS = kwargs['server_pass']
 
         # Handle the variable config options. Note - keys with False values aren't getting passed
 

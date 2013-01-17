@@ -23,7 +23,6 @@ from headphones import logger, progress
 from headphones.databases.AbstractAdapter import DBConnection
 
 class MysqlDBConnection(DBConnection):
-
     def __init__(self):
         super(MysqlDBConnection, self).__init__()
         self.connection = None
@@ -32,15 +31,15 @@ class MysqlDBConnection(DBConnection):
         # db connection per thread
         #
         tl = threading.local()
-        sqlConnection = getattr(tl, "sqlConnection", None)
+        sqlConnection = getattr(tl, 'sqlConnection', None)
         
         if not sqlConnection:
             try:
                 config = {
-                          'user': headphones.MYSQL_USER.encode("ascii", "ignore"),
-                          'password': headphones.MYSQL_PASS.encode("ascii", "ignore"),
-                          'host': headphones.MYSQL_SERVER.encode("ascii", "ignore"),
-                          'database': headphones.MYSQL_DB.encode("ascii", "ignore"),
+                          'user': headphones.MYSQL_USER.encode('ascii', 'ignore'),
+                          'password': headphones.MYSQL_PASS.encode('ascii', 'ignore'),
+                          'host': headphones.MYSQL_SERVER.encode('ascii', 'ignore'),
+                          'database': headphones.MYSQL_DB.encode('ascii', 'ignore'),
                           'connection_timeout': 100
                          }
                 self.connection = mysql.connector.connect(**config)
@@ -63,7 +62,7 @@ class MysqlDBConnection(DBConnection):
 
     def _query(self, cursor, sql, args=None):
         #sanitize query string
-        sql = sql.strip().replace(" COLLATE NOCASE", "").replace("?","%s")
+        sql = sql.strip().replace(' COLLATE NOCASE', '').replace('?','%s')
         if not args:
             cursor.execute(sql)
         else:
@@ -73,37 +72,36 @@ class MysqlDBConnection(DBConnection):
     # Standard Interface follows.
     #
     def tableExport(self,tableName):
-        cnt = self.selectOne("SELECT COUNT(*) as total FROM "+tableName)['total'] 
+        cnt = self.selectOne('SELECT COUNT(*) as total FROM '+tableName)['total']
         rows = self._cursor()
-        rows.execute("SELECT * from %s" % tableName)
-        dbt = progress.get("Table Export", desc="Export tables to filesystem as CSV " + tableName,
+        rows.execute('SELECT * from %s' % tableName)
+        dbt = progress.get('Table Export', desc='Export tables to filesystem as CSV ' + tableName,
                             mod=__name__, max=cnt)
         rowcnt = 0
         with open(os.path.join(headphones.DATA_DIR, tableName + '.csv'), 'wb') as csvfile:
             try:
-                writer = csv.writer(csvfile, quoting=csv.QUOTE_ALL, escapechar="\\")
+                writer = csv.writer(csvfile, quoting=csv.QUOTE_ALL, escapechar='\\')
                 writer.writerow(rows.column_names)
                 for row in rows:
                     writer.writerow([v.encode('utf8') for v in row])
-                    dbt.update(rowcnt,"Insert")
+                    dbt.update(rowcnt,'Insert')
                     rowcnt += 1
             except Exception as e:
-                logger.warn("Export error: %s" % e)
+                logger.warn('Export error: %s' % e)
         return
 
-    # TODO lechat: where this one used?
-    def _tableCopyFrom(self,sc,tableName):
-        cnt = sc.selectOne("SELECT COUNT(*) as total FROM "+tableName)['total'] 
-        c=sc.connection.cursor()
-        dbt = progress.get("Table Copy",desc="Copy Table " + tableName,mod=__name__,max=cnt)
+    def tableCopyFrom(self, source, tableName):
+        cnt = source.selectOne('SELECT COUNT(*) as total FROM '+tableName)['total']
+        c = source.connection.cursor()
+        dbt = progress.get('Table Copy', desc='Copy Table ' + tableName, mod=__name__, max=cnt)
         rowcnt = 0
         self.connection.autocommit = False
-        c.execute("SELECT * from "+tableName)
+        c.execute('SELECT * from ' + tableName)
         columns = [t[0] for t in c.description]
         tc = self.connection.cursor()
-        i = "INSERT INTO " + tableName + "( " + ",".join(columns) + " )"
-        i = i + " VALUES ( " + ", ".join("?" * len(columns)) + " )"
-        i=i.replace("?","%s")
+        row_sql = 'INSERT INTO ' + tableName + '( ' + ','.join(columns) + ' )'
+        row_sql = row_sql + ' VALUES ( ' + ', '.join('?' * len(columns)) + ' )'
+        row_sql = row_sql.replace('?', '%s')
         while True:
             if self.connection.is_connected() == False:
                 self.connection.reconnect(3, 1)
@@ -111,20 +109,20 @@ class MysqlDBConnection(DBConnection):
             if row == []:
                 break
             try:
-                tc.executemany(i,row)
+                tc.executemany(row_sql, row)
             except mysql.connector.Error as err:
-                    logger.warn("Failed to insert(%i): %s" % (err.errno,str(err)))
+                    logger.warn('Failed to insert(%i): %s' % (err.errno, str(err)))
             except Exception as e:
-                logger.warn("Failed to insert: %s" % e)
-            dbt.update(rowcnt,"Insert")
-            rowcnt = rowcnt + len(row)
+                logger.warn('Failed to insert: %s' % e)
+            dbt.update(rowcnt, 'Insert')
+            rowcnt += len(row)
+
         self.connection.commit()
-        return
-        
+
     def selectOne(self, sql, args=None):
         sqlResults = None
         try:
-            sql += " LIMIT 1"
+            sql += ' LIMIT 1'
             c = self._cursor()
             self._query(c, sql ,args)
             sqlResults = c.fetchone()
@@ -139,13 +137,13 @@ class MysqlDBConnection(DBConnection):
         return sqlResults
 
     def selectSome(self, query, off, lim, args=None):
-        r = []
+        rows= []
         try:
             query = '{0:>s} LIMIT {1:>s} OFFSET {2:>s}'.format(query, str(lim), str(off))
-            r = self.select(query, args)
+            rows = self.select(query, args)
         except Exception as e:
-            logger.info("Failed limited select: %s" % e )
-        return r
+            logger.info('Failed limited select: %s' % e )
+        return rows
                 
     def select(self, sql, args=None):    
         sqlResults = []
@@ -202,21 +200,21 @@ class MysqlDBConnection(DBConnection):
         # NOT Safe!
         #
         sql = None
-        genParams = lambda myDict : [x + " = ?" for x in myDict.keys()]
+        genParams = lambda myDict : [x + ' = ?' for x in myDict.keys()]
         try:
             c = self._cursor()
-            fdq = "SELECT COUNT(*) FROM {0:>s} WHERE {1:>s}".format(tableName, " AND ".join(genParams(keyDict)))
+            fdq = 'SELECT COUNT(*) FROM {0:>s} WHERE {1:>s}'.format(tableName, ' AND '.join(genParams(keyDict)))
             self._query(c, fdq, keyDict.values())
             fd = c.fetchone()[0]
             if fd == 0:
                 # insert
-                sql = "INSERT INTO %s ( %s )" % (tableName, ",".join(valueDict.keys() + keyDict.keys()))
-                sql = "%s VALUES ( %s )" % (sql, ", ".join("?" * len(valueDict.keys() + keyDict.keys())))
+                sql = 'INSERT INTO %s ( %s )' % (tableName, ','.join(valueDict.keys() + keyDict.keys()))
+                sql = '%s VALUES ( %s )' % (sql, ', '.join('?' * len(valueDict.keys() + keyDict.keys())))
                 self._query(c, sql, valueDict.values() + keyDict.values())
             else:
                 # update 
-                sql = "UPDATE {0:>s} SET {1:>s}".format(tableName, ",".join(genParams(valueDict)))
-                sql = "{0:>s} WHERE {1:>s}".format(sql, " AND ".join(genParams(keyDict)))
+                sql = 'UPDATE {0:>s} SET {1:>s}'.format(tableName, ','.join(genParams(valueDict)))
+                sql = '{0:>s} WHERE {1:>s}'.format(sql, ' AND '.join(genParams(keyDict)))
                 self._query(c, sql,valueDict.values() + keyDict.values())
             c.close()
             self.connection.commit()
@@ -227,15 +225,17 @@ class MysqlDBConnection(DBConnection):
             
     def dbcheck(self):
         try:
-            con = mysql.connector.connect(user=headphones.MYSQL_USER.encode("ascii","ignore"),password=headphones.MYSQL_PASS.encode("ascii","ignore"),host=headphones.MYSQL_SERVER.encode("ascii","ignore"))
+            con = mysql.connector.connect(user=headphones.MYSQL_USER.encode('ascii','ignore'),
+                                            password=headphones.MYSQL_PASS.encode('ascii','ignore'),
+                                            host=headphones.MYSQL_SERVER.encode('ascii','ignore'))
             c = con.cursor()
 
             # before we do anything else we check for the database
-            c.execute("CREATE DATABASE IF NOT EXISTS {} DEFAULT CHARACTER SET 'utf8'".format(headphones.MYSQL_DB))
+            c.execute('CREATE DATABASE IF NOT EXISTS {} DEFAULT CHARACTER SET "utf8"'.format(headphones.MYSQL_DB))
             con.database = headphones.MYSQL_DB
             # DDL definitions
             tables = {}
-            tables['artists'] = ("CREATE TABLE IF NOT EXISTS artists ( \
+            tables['artists'] = ('CREATE TABLE IF NOT EXISTS artists ( \
                                   ArtistID VARCHAR(100) PRIMARY KEY, \
                                   ArtistName VARCHAR(255), \
                                   ArtistSortName TEXT, \
@@ -253,8 +253,8 @@ class MysqlDBConnection(DBConnection):
                                   startDate VARCHAR(20), \
                                   endDate VARCHAR(20), \
                                   Extras TEXT \
-                                  )" )
-            tables['albums'] = (" CREATE TABLE IF NOT EXISTS albums ( \
+                                  )' )
+            tables['albums'] = (' CREATE TABLE IF NOT EXISTS albums ( \
                                   ArtistID VARCHAR(100), INDEX (ArtistID), \
                                   ArtistName VARCHAR(255), \
                                   AlbumTitle TEXT, \
@@ -268,9 +268,10 @@ class MysqlDBConnection(DBConnection):
                                   ThumbURL TEXT, \
                                   ReleaseID VARCHAR(100), \
                                   ReleaseCountry VARCHAR(255), \
-                                  ReleaseFormat TEXT)")
-            # ReleaseFormat here means CD,Digital,Vinyl, etc. If using the default Headphones hybrid release, ReleaseID will equal AlbumID (AlbumID is releasegroup id)
-            tables['tracks'] = ("CREATE TABLE IF NOT EXISTS tracks (\
+                                  ReleaseFormat TEXT)')
+            # ReleaseFormat here means CD,Digital,Vinyl, etc. If using the default Headphones hybrid release,
+            # ReleaseID will equal AlbumID (AlbumID is releasegroup id)
+            tables['tracks'] = ('CREATE TABLE IF NOT EXISTS tracks (\
                                  ArtistID VARCHAR(100), INDEX (ArtistID), \
                                  ArtistName VARCHAR(255), \
                                  AlbumTitle TEXT, \
@@ -285,9 +286,9 @@ class MysqlDBConnection(DBConnection):
                                  CleanName TEXT, \
                                  Format TEXT, \
                                  ReleaseID VARCHAR(100), \
-                                 PRIMARY KEY (AlbumID,TrackID,ReleaseID) )")
+                                 PRIMARY KEY (AlbumID,TrackID,ReleaseID) )')
             # Format here means mp3, flac, etc.
-            tables['allalbums'] = ("CREATE TABLE IF NOT EXISTS allalbums (\
+            tables['allalbums'] = ('CREATE TABLE IF NOT EXISTS allalbums (\
                                     ArtistID VARCHAR(100), INDEX (ArtistID), \
                                     ArtistName VARCHAR(255), \
                                     AlbumTitle TEXT, \
@@ -298,8 +299,8 @@ class MysqlDBConnection(DBConnection):
                                     ReleaseID VARCHAR(100), \
                                     ReleaseCountry TEXT, \
                                     ReleaseFormat TEXT, \
-                                    PRIMARY KEY (AlbumID,ReleaseID) ) ")
-            tables['alltracks'] = ("CREATE TABLE IF NOT EXISTS alltracks (\
+                                    PRIMARY KEY (AlbumID,ReleaseID) ) ')
+            tables['alltracks'] = ('CREATE TABLE IF NOT EXISTS alltracks (\
                                     ArtistID VARCHAR(100), INDEX(ArtistID), \
                                     ArtistName VARCHAR(255), \
                                     AlbumTitle TEXT, \
@@ -314,16 +315,16 @@ class MysqlDBConnection(DBConnection):
                                     CleanName TEXT, \
                                     Format TEXT, \
                                     ReleaseID VARCHAR(100), \
-                                    PRIMARY KEY ( AlbumID, TrackID , ReleaseID ) )")
-            tables['snatched'] = ("CREATE TABLE IF NOT EXISTS snatched (\
+                                    PRIMARY KEY ( AlbumID, TrackID , ReleaseID ) )')
+            tables['snatched'] = ('CREATE TABLE IF NOT EXISTS snatched (\
                                    AlbumID VARCHAR(100), INDEX (AlbumID), \
                                    Title TEXT, \
                                    Size INTEGER, \
                                    URL TEXT, \
                                    DateAdded VARCHAR(20), \
                                    Status TEXT, \
-                                   FolderName TEXT)")
-            tables['have'] = ("CREATE TABLE IF NOT EXISTS have (\
+                                   FolderName TEXT)')
+            tables['have'] = ('CREATE TABLE IF NOT EXISTS have (\
                                ArtistName VARCHAR(255), \
                                AlbumTitle TEXT, \
                                TrackNumber TEXT, \
@@ -336,38 +337,38 @@ class MysqlDBConnection(DBConnection):
                                Location TEXT, \
                                CleanName TEXT, \
                                Format TEXT, \
-                               Matched TEXT)")
+                               Matched TEXT)')
             # Matched is a temporary value used to see if there was a match found in alltracks
-            tables['lastfmcloud'] = ("CREATE TABLE IF NOT EXISTS lastfmcloud (\
+            tables['lastfmcloud'] = ('CREATE TABLE IF NOT EXISTS lastfmcloud (\
                                       ArtistName VARCHAR(255), \
                                       ArtistID VARCHAR(100), INDEX (ArtistID), \
-                                      Count INTEGER)")
-            tables['descriptions'] = ("CREATE TABLE IF NOT EXISTS descriptions (\
+                                      Count INTEGER)')
+            tables['descriptions'] = ('CREATE TABLE IF NOT EXISTS descriptions (\
                                        ArtistID VARCHAR(100), INDEX (ArtistID), \
                                        ReleaseGroupID VARCHAR(100), \
                                        ReleaseID VARCHAR(100), \
                                        Summary TEXT, \
                                        Content TEXT, \
-                                       LastUpdated VARCHAR(20))")
-            tables['blacklist'] = ("CREATE TABLE IF NOT EXISTS blacklist (\
-                                    ArtistID VARCHAR(100) PRIMARY KEY)")
-            tables['newartists'] = ("CREATE TABLE IF NOT EXISTS newartists (\
-                                     ArtistName VARCHAR(255) PRIMARY KEY)")
-            tables['releases'] = ("CREATE TABLE IF NOT EXISTS releases (\
+                                       LastUpdated VARCHAR(20))')
+            tables['blacklist'] = ('CREATE TABLE IF NOT EXISTS blacklist (\
+                                    ArtistID VARCHAR(100) PRIMARY KEY)')
+            tables['newartists'] = ('CREATE TABLE IF NOT EXISTS newartists (\
+                                     ArtistName VARCHAR(255) PRIMARY KEY)')
+            tables['releases'] = ('CREATE TABLE IF NOT EXISTS releases (\
                                    ReleaseID VARCHAR(100), \
                                    ReleaseGroupID VARCHAR(100), \
-                                   UNIQUE(ReleaseID, ReleaseGroupID))")
+                                   UNIQUE(ReleaseID, ReleaseGroupID))')
             for name,ddl in tables.iteritems():
                 try:
-                    logger.info("Creating table %s..." % name)
+                    logger.info('Creating table %s...' % name)
                     c.execute(ddl)
                 except mysql.connector.Error as err:
                     if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
-                        logger.warn("Table %s already exists!" % name)
+                        logger.warn('Table %s already exists!' % name)
                     else:
-                        logger.error("Error creating table "+name+": %s" % err.errmsg)
+                        logger.error('Error creating table '+name+': %s' % err.errmsg)
                 else:
-                    logger.info("Created.")
+                    logger.info('Created.')
 
             # DB migration
             try:
@@ -381,7 +382,7 @@ class MysqlDBConnection(DBConnection):
                 c.execute('ALTER TABLE artists ADD COLUMN endDate VARCHAR(20) DEFAULT NULL')
 
         except Exception as err:
-            logger.error(u"Failed to create database {}.".format(headphones.MYSQL_DB))
+            logger.error(u'Failed to create database {}.'.format(headphones.MYSQL_DB))
         else:
             c.close()
             con.close()

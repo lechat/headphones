@@ -28,11 +28,11 @@ class SqliteDBConnection(DBConnection):
         self.filename = filename
         self.connection = sqlite3.connect(os.path.join(headphones.DATA_DIR, self.filename), timeout=20)
         #don't wait for the disk to finish writing
-        self.connection.execute("PRAGMA synchronous = OFF")
+        self.connection.execute('PRAGMA synchronous = OFF')
         #journal disabled since we never do rollbacks
-        self.connection.execute("PRAGMA journal_mode = OFF")
+        self.connection.execute('PRAGMA journal_mode = OFF')
         #64mb of cache memory,probably need to make it user configurable
-        self.connection.execute("PRAGMA cache_size=-%s" % (self.cache_size * 1024))
+        self.connection.execute('PRAGMA cache_size=-%s' % (self.cache_size * 1024))
         self.connection.row_factory = sqlite3.Row
         self.dbNiceName = 'SQL Lite'
 
@@ -49,15 +49,15 @@ class SqliteDBConnection(DBConnection):
             while attempt < 5:
                 try:
                     if not args:
-                        #logger.debug(self.filename+": "+query)
+                        #logger.debug(self.filename+': '+query)
                         sqlResult = self.connection.execute(query)
                     else:
-                        #logger.debug(self.filename+": "+query+" with args "+str(args))
+                        #logger.debug(self.filename+': '+query+' with args '+str(args))
                         sqlResult = self.connection.execute(query, args)
                     self.connection.commit()
                     break
                 except sqlite3.OperationalError as e:
-                    if "unable to open database file" in e.message or "database is locked" in e.message:
+                    if 'unable to open database file' in e.message or 'database is locked' in e.message:
                         logger.warn('Database Error: %s' % e)
                         attempt += 1
                         time.sleep(1)
@@ -71,33 +71,33 @@ class SqliteDBConnection(DBConnection):
             return sqlResult
 
     def tableExport(self, tableName):
-        cnt = self.selectOne("SELECT COUNT(*) as total FROM "+tableName)['total']
+        cnt = self.selectOne('SELECT COUNT(*) as total FROM '+tableName)['total']
         c = self.connection.cursor()
-        rows = c.execute("SELECT * from "+tableName)
-        dbt = progress.get("Table Export",desc="Export tables to filesystem as CSV " + tableName,mod=__name__,max=cnt)
+        rows = c.execute('SELECT * from '+tableName)
+        dbt = progress.get('Table Export',desc='Export tables to filesystem as CSV ' + tableName,mod=__name__,max=cnt)
         rowcnt = 0
         with open(os.path.join(headphones.DATA_DIR, tableName+'.csv'), 'wb') as csvfile:
             try:
-                writer = unicodecsv.writer(csvfile, quoting=csv.QUOTE_ALL, escapechar="\\")
+                writer = unicodecsv.writer(csvfile, quoting=csv.QUOTE_ALL, escapechar='\\')
                 writer.writerow([t[0] for t in c.description])
                 for row in rows:
                     try:
                         writer.writerow(list(row))
-                        dbt.update(rowcnt, "Insert")
+                        dbt.update(rowcnt, 'Insert')
                         rowcnt += 1
                     except Exception as e:
-                        logger.warn("Export line(%i) error: %s" % (rowcnt, e))
+                        logger.warn('Export line(%i) error: %s' % (rowcnt, e))
             except Exception as e:
-                logger.warn("Export error: %s" % e)
+                logger.warn('Export error: %s' % e)
         return
 
     def selectSome(self, query, off, lim, args=None):
         r = []
         try:
-            query = query + " LIMIT " + str(lim) + " OFFSET " + str(off)
+            query = query + ' LIMIT ' + str(lim) + ' OFFSET ' + str(off)
             r = self.select(query, args)
         except Exception as e:
-            logger.info("Failed limited select: %s" % e )
+            logger.info('Failed limited select: %s' % e )
         return r
 
     def select(self, query, args=None):
@@ -111,39 +111,40 @@ class SqliteDBConnection(DBConnection):
     def upsert(self, tableName, valueDict, keyDict):
         changesBefore = self.connection.total_changes
 
-        genParams = lambda myDict : [x + " = ?" for x in myDict.keys()]
+        genParams = lambda myDict : [x + ' = ?' for x in myDict.keys()]
 
-        query = "UPDATE "+tableName+" SET " + ", ".join(genParams(valueDict)) + " WHERE " + " AND ".join(genParams(keyDict))
+        query = 'UPDATE '+tableName+' SET ' + ', '.join(genParams(valueDict)) + ' WHERE ' + \
+                ' AND '.join(genParams(keyDict))
         s1 = time.time()
         self.action(query, valueDict.values() + keyDict.values())
         s2 = time.time()
         if self.connection.total_changes == changesBefore:
-            query = "INSERT INTO "+tableName+" (" + ", ".join(valueDict.keys() + keyDict.keys()) + ")" + \
-                        " VALUES (" + ", ".join(["?"] * len(valueDict.keys() + keyDict.keys())) + ")"
+            query = 'INSERT INTO '+tableName+' (' + ', '.join(valueDict.keys() + keyDict.keys()) + ')' + \
+                        ' VALUES (' + ', '.join(['?'] * len(valueDict.keys() + keyDict.keys())) + ')'
             self.action(query, valueDict.values() + keyDict.values())
         if (time.time() - s1) > 0.5:
-            logger.warn("Timings for upsert: %f(update), %f(insert)" % ( s2 - s1, time.time() - s2 ))
+            logger.warn('Timings for upsert: %f(update), %f(insert)' % ( s2 - s1, time.time() - s2 ))
 
     def maintenance(self):
         conn = sqlite3.connect(headphones.DB_FILE)
         c = conn.cursor()
-        logger.info("checking for DB problems...")
+        logger.info('checking for DB problems...')
         try:
-            r = c.execute("PRAGMA integrity_check").fetchall()
+            r = c.execute('PRAGMA integrity_check').fetchall()
             for p in r:
-                logger.error("DB check reports problem: %s" % p[0])
+                logger.error('DB check reports problem: %s' % p[0])
         except:
-            logger.error("DB integrity check failed.")
-        logger.info("Cleaning and defragmenting DB")
+            logger.error('DB integrity check failed.')
+        logger.info('Cleaning and defragmenting DB')
         try:
-            c.execute("VACUUM")
+            c.execute('VACUUM')
         except:
-            logger.error("Cleanup failed.")
-        logger.info("Gathering Statistics")
+            logger.error('Cleanup failed.')
+        logger.info('Gathering Statistics')
         try:
-            c.execute("ANALYZE")
+            c.execute('ANALYZE')
         except:
-            logger.error("ANALYZE failed.")
+            logger.error('ANALYZE failed.')
         conn.commit()
         c.close()
         return
@@ -151,28 +152,50 @@ class SqliteDBConnection(DBConnection):
     def dbcheck(self):
         conn = sqlite3.connect(headphones.DB_FILE)
         c = conn.cursor()
-        c.execute('CREATE TABLE IF NOT EXISTS artists (ArtistID VARCHAR(255) UNIQUE, ArtistName VARCHAR(255), ArtistSortName TEXT, DateAdded TEXT, Status TEXT, IncludeExtras INTEGER, LatestAlbum TEXT, ReleaseDate TEXT, AlbumID VARCHAR(255), HaveTracks INTEGER, TotalTracks INTEGER, LastUpdated TEXT, ArtworkURL TEXT, ThumbURL TEXT, startDate TEXT, endDate TEXT, Extras TEXT)')
-        c.execute('CREATE TABLE IF NOT EXISTS albums (ArtistID VARCHAR(255), ArtistName VARCHAR(255), AlbumTitle TEXT, AlbumASIN TEXT, ReleaseDate VARCHAR(255), DateAdded TEXT, AlbumID VARCHAR(255) UNIQUE, Status TEXT, Type TEXT, ArtworkURL TEXT, ThumbURL TEXT, ReleaseID VARCHAR(100), ReleaseCountry TEXT, ReleaseFormat TEXT)')   # ReleaseFormat here means CD,Digital,Vinyl, etc. If using the default Headphones hybrid release, ReleaseID will equal AlbumID (AlbumID is releasegroup id)
-        c.execute('CREATE TABLE IF NOT EXISTS tracks (ArtistID VARCHAR(255), ArtistName VARCHAR(255), AlbumTitle TEXT, AlbumASIN TEXT, AlbumID VARCHAR(255), TrackTitle TEXT, TrackDuration TIME, TrackID VARCHAR(255), TrackNumber INTEGER, Location TEXT, BitRate INTEGER, CleanName TEXT, Format TEXT, ReleaseID VARCHAR(100))')    # Format here means mp3, flac, etc.
-        c.execute('CREATE TABLE IF NOT EXISTS allalbums (ArtistID VARCHAR(255), ArtistName VARCHAR(255), AlbumTitle TEXT, AlbumASIN TEXT, ReleaseDate TEXT, AlbumID VARCHAR(255), Type TEXT, ReleaseID VARCHAR(100), ReleaseCountry TEXT, ReleaseFormat TEXT)')
-        c.execute('CREATE TABLE IF NOT EXISTS alltracks (ArtistID VARCHAR(255), ArtistName VARCHAR(255), AlbumTitle TEXT, AlbumASIN TEXT, AlbumID VARCHAR(255), TrackTitle TEXT, TrackDuration TIME, TrackID VARCHAR(255), TrackNumber INTEGER, Location TEXT, BitRate INTEGER, CleanName TEXT, Format TEXT, ReleaseID VARCHAR(100))')
-        c.execute('CREATE TABLE IF NOT EXISTS snatched (AlbumID VARCHAR(255), Title TEXT, Size INTEGER, URL TEXT, DateAdded TEXT, Status TEXT, FolderName TEXT)')
-        c.execute('CREATE TABLE IF NOT EXISTS have (ArtistName VARCHAR(255), AlbumTitle TEXT, TrackNumber TEXT, TrackTitle TEXT, TrackLength TEXT, BitRate TEXT, Genre TEXT, Date TEXT, TrackID VARCHAR(255), Location TEXT, CleanName TEXT, Format TEXT, Matched TEXT)') # Matched is a temporary value used to see if there was a match found in alltracks
-        c.execute('CREATE TABLE IF NOT EXISTS lastfmcloud (ArtistName VARCHAR(255), ArtistID VARCHAR(255), Count INTEGER)')
-        c.execute('CREATE TABLE IF NOT EXISTS descriptions (ArtistID VARCHAR(255), ReleaseGroupID VARCHAR(100), ReleaseID VARCHAR(100), Summary TEXT, Content TEXT, LastUpdated TEXT)')
+        c.execute('CREATE TABLE IF NOT EXISTS artists (ArtistID VARCHAR(255) UNIQUE, ArtistName VARCHAR(255), '
+                  'ArtistSortName TEXT, DateAdded TEXT, Status TEXT, IncludeExtras INTEGER, LatestAlbum TEXT, '
+                  'ReleaseDate TEXT, AlbumID VARCHAR(255), HaveTracks INTEGER, TotalTracks INTEGER, LastUpdated TEXT, '
+                  'ArtworkURL TEXT, ThumbURL TEXT, startDate TEXT, endDate TEXT, Extras TEXT)')
+        c.execute('CREATE TABLE IF NOT EXISTS albums (ArtistID VARCHAR(255), ArtistName VARCHAR(255), AlbumTitle TEXT, '
+                  'AlbumASIN TEXT, ReleaseDate VARCHAR(255), DateAdded TEXT, AlbumID VARCHAR(255) UNIQUE, Status TEXT, '
+                  'Type TEXT, ArtworkURL TEXT, ThumbURL TEXT, ReleaseID VARCHAR(100), ReleaseCountry TEXT, '
+                  'ReleaseFormat TEXT)')   # ReleaseFormat here means CD,Digital,Vinyl, etc. If using the default
+                  # Headphones hybrid release, ReleaseID will equal AlbumID (AlbumID is releasegroup id)
+        c.execute('CREATE TABLE IF NOT EXISTS tracks (ArtistID VARCHAR(255), ArtistName VARCHAR(255), AlbumTitle TEXT'
+                  ', AlbumASIN TEXT, AlbumID VARCHAR(255), TrackTitle TEXT, TrackDuration TIME, TrackID VARCHAR(255), '
+                  'TrackNumber INTEGER, Location TEXT, BitRate INTEGER, CleanName TEXT, Format TEXT, '
+                  'ReleaseID VARCHAR(100))')    # Format here means mp3, flac, etc.
+        c.execute('CREATE TABLE IF NOT EXISTS allalbums (ArtistID VARCHAR(255), ArtistName VARCHAR(255), '
+                  'AlbumTitle TEXT, AlbumASIN TEXT, ReleaseDate TEXT, AlbumID VARCHAR(255), Type TEXT, '
+                  'ReleaseID VARCHAR(100), ReleaseCountry TEXT, ReleaseFormat TEXT)')
+        c.execute('CREATE TABLE IF NOT EXISTS alltracks (ArtistID VARCHAR(255), ArtistName VARCHAR(255), '
+                  'AlbumTitle TEXT, AlbumASIN TEXT, AlbumID VARCHAR(255), TrackTitle TEXT, TrackDuration TIME, '
+                  'TrackID VARCHAR(255), TrackNumber INTEGER, Location TEXT, BitRate INTEGER, CleanName TEXT, '
+                  'Format TEXT, ReleaseID VARCHAR(100))')
+        c.execute('CREATE TABLE IF NOT EXISTS snatched (AlbumID VARCHAR(255), Title TEXT, Size INTEGER, URL TEXT, '
+                  'DateAdded TEXT, Status TEXT, FolderName TEXT)')
+        c.execute('CREATE TABLE IF NOT EXISTS have (ArtistName VARCHAR(255), AlbumTitle TEXT, TrackNumber TEXT, '
+                  'TrackTitle TEXT, TrackLength TEXT, BitRate TEXT, Genre TEXT, Date TEXT, TrackID VARCHAR(255), '
+                  'Location TEXT, CleanName TEXT, Format TEXT, Matched TEXT)') # Matched is a temporary value used
+                  # to see if there was a match found in alltracks
+        c.execute('CREATE TABLE IF NOT EXISTS lastfmcloud (ArtistName VARCHAR(255), ArtistID VARCHAR(255), '
+                  'Count INTEGER)')
+        c.execute('CREATE TABLE IF NOT EXISTS descriptions (ArtistID VARCHAR(255), ReleaseGroupID VARCHAR(100), '
+                  'ReleaseID VARCHAR(100), Summary TEXT, Content TEXT, LastUpdated TEXT)')
         c.execute('CREATE TABLE IF NOT EXISTS blacklist (ArtistID VARCHAR(255) UNIQUE)')
         c.execute('CREATE TABLE IF NOT EXISTS newartists (ArtistName VARCHAR(255) UNIQUE)')
-        c.execute('CREATE TABLE IF NOT EXISTS releases (ReleaseID VARCHAR(100), ReleaseGroupID VARCHAR(100), UNIQUE(ReleaseID, ReleaseGroupID))')
+        c.execute('CREATE TABLE IF NOT EXISTS releases (ReleaseID VARCHAR(100), ReleaseGroupID VARCHAR(100), '
+                  'UNIQUE(ReleaseID, ReleaseGroupID))')
 
         c.execute('CREATE INDEX IF NOT EXISTS tracks_albumid ON tracks(AlbumID ASC)')
         c.execute('CREATE INDEX IF NOT EXISTS album_artistid_reldate ON albums(ArtistID ASC, ReleaseDate DESC)')
-        c.execute("CREATE INDEX IF NOT EXISTS tracks_artistid ON Tracks(ArtistID ASC)")
-        c.execute("CREATE INDEX IF NOT EXISTS alltracks_trackid_releaseid ON alltracks(TrackID,ReleaseID)")
-        c.execute("CREATE INDEX IF NOT EXISTS alltracks_trackid_albumtitle ON alltracks(TrackID,AlbumTitle)")
-        c.execute("CREATE INDEX IF NOT EXISTS tracks_trackid_albumid ON tracks(TrackID,AlbumId)")
-        c.execute("CREATE INDEX IF NOT EXISTS tracks_trackid_releaseid ON tracks(TrackID,ReleaseID)")
-        c.execute("CREATE INDEX IF NOT EXISTS tracks_trackid_albumtitle ON tracks(TrackID,AlbumTitle)")
-        c.execute("CREATE INDEX IF NOT EXISTS tracks_trackid_albumid ON tracks(TrackID,AlbumId)")
+        c.execute('CREATE INDEX IF NOT EXISTS tracks_artistid ON Tracks(ArtistID ASC)')
+        c.execute('CREATE INDEX IF NOT EXISTS alltracks_trackid_releaseid ON alltracks(TrackID,ReleaseID)')
+        c.execute('CREATE INDEX IF NOT EXISTS alltracks_trackid_albumtitle ON alltracks(TrackID,AlbumTitle)')
+        c.execute('CREATE INDEX IF NOT EXISTS tracks_trackid_albumid ON tracks(TrackID,AlbumId)')
+        c.execute('CREATE INDEX IF NOT EXISTS tracks_trackid_releaseid ON tracks(TrackID,ReleaseID)')
+        c.execute('CREATE INDEX IF NOT EXISTS tracks_trackid_albumtitle ON tracks(TrackID,AlbumTitle)')
+        c.execute('CREATE INDEX IF NOT EXISTS tracks_trackid_albumid ON tracks(TrackID,AlbumId)')
 
         try:
             c.execute('SELECT IncludeExtras from artists')
@@ -331,15 +354,13 @@ class SqliteDBConnection(DBConnection):
             c.execute('ALTER TABLE artists ADD COLUMN Extras TEXT DEFAULT NULL')
             # Need to update some stuff when people are upgrading and have 'include extras' set globally/for an artist
             if headphones.INCLUDE_EXTRAS:
-                headphones.EXTRAS = "1,2,3,4,5,6,7,8"
-            logger.info("Copying over current artist IncludeExtras information")
+                headphones.EXTRAS = '1,2,3,4,5,6,7,8'
+            logger.info('Copying over current artist IncludeExtras information')
             artists = c.execute('SELECT ArtistID, IncludeExtras from artists').fetchall()
             for artist in artists:
                 if artist[1]:
-                    c.execute('UPDATE artists SET Extras=? WHERE ArtistID=?', ("1,2,3,4,5,6,7,8", artist[0]))
+                    c.execute('UPDATE artists SET Extras=? WHERE ArtistID=?', ('1,2,3,4,5,6,7,8', artist[0]))
 
         conn.commit()
         c.close()
-def dbNiceName():
-    return "SQL Lite"
 
