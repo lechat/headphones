@@ -1,6 +1,20 @@
 #![preview thumb](https://github.com/rembo10/headphones/raw/master/data/images/headphoneslogo.png)Headphones
 
 ###Notes
+This is a fork of performance branch of majello/headphones, which seems to have varios problems and not being updated
+
+What is done here:
+* dynamic loading of database adapters
+
+What is broken:
+* pretty much everything concerning databases other than sqlite
+
+What is planned:
+* fix what's broken :)
+* add ElasticSearch support
+* to have performance optimised and pythonized version of Headphones
+
+
 This is a fork of Headphones by rembo10. I intend to provide database connectivity beyond sqlite and various optimizations, improvements.
 The current version adds:
 * mySQL connectivity
