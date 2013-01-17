@@ -56,3 +56,4 @@ _ReSharper*/
 .project
 .pydevproject
 .idea/
+.idea/*
