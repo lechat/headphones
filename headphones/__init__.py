@@ -577,7 +577,7 @@ def initialize():
             logger.info("Search interval too low. Resetting to 6 hour minimum")
             SEARCH_INTERVAL = 360
 
-        db = databases.getDBModule(DB_MODE)
+        db = databases.getDBConnection(DB_MODE)
 
         # Initialize the database
         logger.info('Checking to see if the database has all tables....')
