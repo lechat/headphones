@@ -59,7 +59,6 @@ CFG = None
 CONFIG_VERSION = None
 
 DB_FILE = None
-DB_MODE = None
 
 LOG_DIR = None
 LOG_LIST = []
@@ -222,10 +221,12 @@ CUSTOMSLEEP = None
 HPUSER = None
 HPPASS = None
 
-MYSQL_SERVER = None
-MYSQL_DB = None
-MYSQL_USER = None
-MYSQL_PASS = None
+# Database parameters: DB_TYPE is used to configure db, must correspond to *Adapter.py in databases/
+DB_TYPE = None
+DB_SERVER = None
+DB_NAME = None
+DB_USER = None
+DB_PASS = None
 
 UPDATE_MODE = None
 
@@ -298,7 +299,8 @@ def initialize():
                 MUSIC_ENCODER, ADVANCEDENCODER, ENCODEROUTPUTFORMAT, ENCODERQUALITY, ENCODERVBRCBR, ENCODERLOSSLESS, DELETE_LOSSLESS_FILES, \
                 PROWL_ENABLED, PROWL_PRIORITY, PROWL_KEYS, PROWL_ONSNATCH, PUSHOVER_ENABLED, PUSHOVER_PRIORITY, PUSHOVER_KEYS, PUSHOVER_ONSNATCH, MIRRORLIST, \
                 MIRROR, CUSTOMHOST, CUSTOMPORT, CUSTOMSLEEP, HPUSER, HPPASS, XBMC_ENABLED, XBMC_HOST, XBMC_USERNAME, XBMC_PASSWORD, XBMC_UPDATE, \
-                DB_MODE
+                DB_TYPE, DB_NAME, DB_SERVER, DB_USER, DB_PASS
+        # lechat: ^-- Globals added in performance branch
 
         if __INITIALIZED__:
             return False
@@ -321,7 +323,7 @@ def initialize():
         CheckSection('NMA')
         CheckSection('Synoindex')
         CheckSection('Advanced')
-        CheckSection('MySql')
+        CheckSection('Database')
 
         # Set global variables based on config file or use defaults
         CONFIG_VERSION = check_setting_str(CFG, 'General', 'config_version', '0')
@@ -347,7 +349,8 @@ def initialize():
         GIT_BRANCH = check_setting_str(CFG, 'General', 'git_branch', 'master')
         LOG_DIR = check_setting_str(CFG, 'General', 'log_dir', '')
         CACHE_DIR = check_setting_str(CFG, 'General', 'cache_dir', '')
-        DB_MODE = check_setting_str(CFG, 'General', 'database', 'Sqlite')
+        # 'database' param kept in General since it defines system-wide param
+        DB_TYPE = check_setting_str(CFG, 'General', 'database', 'Sqlite')
 
         CHECK_GITHUB = bool(check_setting_int(CFG, 'General', 'check_github', 1))
         CHECK_GITHUB_ON_STARTUP = bool(check_setting_int(CFG, 'General', 'check_github_on_startup', 1))
@@ -492,10 +495,10 @@ def initialize():
 
         # we really should isolate this kind of stuff into the database modules
 
-        MYSQL_SERVER = check_setting_str(CFG,'MySql','server','127.0.0.1')
-        MYSQL_DB = check_setting_str(CFG,'MySql','database','headphones')
-        MYSQL_USER = check_setting_str(CFG,'MySql','user','headphones')
-        MYSQL_PASS = check_setting_str(CFG,'MySql','password','headphones')
+        DB_SERVER = check_setting_str(CFG,'MySql','server','127.0.0.1')
+        DB_NAME = check_setting_str(CFG,'MySql','database','headphones')
+        DB_USER = check_setting_str(CFG,'MySql','user','headphones')
+        DB_PASS = check_setting_str(CFG,'MySql','password','headphones')
 
         UPDATE_MODE = check_setting_str(CFG,'Advanced','scanmode','normal')
         CACHE_SIZEMB = check_setting_int(CFG,'Advanced','cache_sizemb',32)
@@ -577,7 +580,7 @@ def initialize():
             logger.info("Search interval too low. Resetting to 6 hour minimum")
             SEARCH_INTERVAL = 360
 
-        db = databases.getDBConnection(DB_MODE)
+        db = databases.getDBConnection(DB_TYPE)
 
         # Initialize the database
         logger.info('Checking to see if the database has all tables....')
@@ -724,7 +727,7 @@ def config_write():
     new_config['General']['mininova'] = int(MININOVA)
     new_config['General']['download_torrent_dir'] = DOWNLOAD_TORRENT_DIR
 
-    new_config['General']['database'] = DB_MODE
+    new_config['General']['database'] = DB_TYPE
 
     new_config['Waffles'] = {}
     new_config['Waffles']['waffles'] = int(WAFFLES)
@@ -848,10 +851,10 @@ def config_write():
     new_config['Advanced']['scanmode'] = UPDATE_MODE
 
     new_config['MySql']= {}
-    new_config['MySql']['server'] = MYSQL_SERVER
-    new_config['MySql']['database'] = MYSQL_DB
-    new_config['MySql']['user'] = MYSQL_USER
-    new_config['MySql']['password'] = MYSQL_PASS
+    new_config['MySql']['server'] = DB_SERVER
+    new_config['MySql']['database'] = DB_NAME
+    new_config['MySql']['user'] = DB_USER
+    new_config['MySql']['password'] = DB_PASS
 
     new_config.write()
 

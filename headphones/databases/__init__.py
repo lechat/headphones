@@ -37,7 +37,7 @@ def getDBModule(name):
 
 def getDBConnection(db_type=None):
     if not db_type:
-        db_type = headphones.DB_MODE
+        db_type = headphones.DB_TYPE
     module = getDBModule(db_type)
     return module.DBConnection()
 

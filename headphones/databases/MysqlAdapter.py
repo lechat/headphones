@@ -36,10 +36,10 @@ class DBConnection(DBConnectionInterface):
         if not sqlConnection:
             try:
                 config = {
-                          'user': headphones.MYSQL_USER.encode('ascii', 'ignore'),
-                          'password': headphones.MYSQL_PASS.encode('ascii', 'ignore'),
-                          'host': headphones.MYSQL_SERVER.encode('ascii', 'ignore'),
-                          'database': headphones.MYSQL_DB.encode('ascii', 'ignore'),
+                          'user': headphones.DB_USER.encode('ascii', 'ignore'),
+                          'password': headphones.DB_PASS.encode('ascii', 'ignore'),
+                          'host': headphones.DB_SERVER.encode('ascii', 'ignore'),
+                          'database': headphones.DB_NAME.encode('ascii', 'ignore'),
                           'connection_timeout': 100
                          }
                 self.connection = mysql.connector.connect(**config)
@@ -225,14 +225,14 @@ class DBConnection(DBConnectionInterface):
             
     def dbcheck(self):
         try:
-            con = mysql.connector.connect(user=headphones.MYSQL_USER.encode('ascii','ignore'),
-                                            password=headphones.MYSQL_PASS.encode('ascii','ignore'),
-                                            host=headphones.MYSQL_SERVER.encode('ascii','ignore'))
+            con = mysql.connector.connect(user=headphones.DB_USER.encode('ascii', 'ignore'),
+                                            password=headphones.DB_PASS.encode('ascii', 'ignore'),
+                                            host=headphones.DB_SERVER.encode('ascii', 'ignore'))
             c = con.cursor()
 
             # before we do anything else we check for the database
-            c.execute('CREATE DATABASE IF NOT EXISTS {} DEFAULT CHARACTER SET "utf8"'.format(headphones.MYSQL_DB))
-            con.database = headphones.MYSQL_DB
+            c.execute('CREATE DATABASE IF NOT EXISTS {} DEFAULT CHARACTER SET "utf8"'.format(headphones.DB_NAME))
+            con.database = headphones.DB_NAME
             # DDL definitions
             tables = {}
             tables['artists'] = ('CREATE TABLE IF NOT EXISTS artists ( \
@@ -382,7 +382,7 @@ class DBConnection(DBConnectionInterface):
                 c.execute('ALTER TABLE artists ADD COLUMN endDate VARCHAR(20) DEFAULT NULL')
 
         except Exception as err:
-            logger.error(u'Failed to create database {}.'.format(headphones.MYSQL_DB))
+            logger.error(u'Failed to create database {}.'.format(headphones.DB_NAME))
         else:
             c.close()
             con.close()

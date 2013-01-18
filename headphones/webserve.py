@@ -577,7 +577,7 @@ class WebInterface(object):
     fromSqllite.exposed = True
 
     def checkDB(self):
-        m = databases.getDBModule(headphones.DB_MODE)
+        m = databases.getDBConnection()
         threading.Thread(target=m.maintenance()).start()
         return
 
@@ -727,10 +727,10 @@ class WebInterface(object):
                     "hpuser": headphones.HPUSER,
                     "hppass": headphones.HPPASS,
                     "cache_sizemb":headphones.CACHE_SIZEMB,
-                    "server_name":headphones.MYSQL_SERVER,
-                    "database_name":headphones.MYSQL_DB,
-                    "server_user":headphones.MYSQL_USER,
-                    "server_pass":headphones.MYSQL_PASS,
+                    "server_name":headphones.DB_SERVER,
+                    "database_name":headphones.DB_NAME,
+                    "server_user":headphones.DB_USER,
+                    "server_pass":headphones.DB_PASS,
                     "db_list":databases.getDBList(),
                     "update_mode":headphones.UPDATE_MODE,
                 }
@@ -884,12 +884,12 @@ class WebInterface(object):
         headphones.CACHE_SIZEMB = int(cache_sizemb)
         headphones.UPDATE_MODE = kwargs['update_mode']
 
-        old_mode = headphones.DB_MODE
-        headphones.DB_MODE = kwargs['dbtype']
-        headphones.MYSQL_SERVER = kwargs['server_name']
-        headphones.MYSQL_DB = kwargs['database_name']
-        headphones.MYSQL_USER = kwargs['server_user']
-        headphones.MYSQL_PASS = kwargs['server_pass']
+        old_mode = headphones.DB_TYPE
+        headphones.DB_TYPE = kwargs['dbtype']
+        headphones.DB_SERVER = kwargs['server_name']
+        headphones.DB_NAME = kwargs['database_name']
+        headphones.DB_USER = kwargs['server_user']
+        headphones.DB_PASS = kwargs['server_pass']
 
         # Handle the variable config options. Note - keys with False values aren't getting passed
 
@@ -928,9 +928,9 @@ class WebInterface(object):
         headphones.config_write()
 
         # database
-        if old_mode <> headphones.DB_MODE:
+        if old_mode <> headphones.DB_TYPE:
             logger.info(u"Database provider changed. Checking database...")
-            databases.getDBModule(headphones.DB_MODE).dbcheck()
+            databases.getDBConnection().dbcheck()
             logger.info(u"Database provider changed. Check finished.")
 
         #reconfigure musicbrainz database connection with the new values
