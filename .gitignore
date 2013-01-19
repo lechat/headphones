@@ -55,6 +55,9 @@ _ReSharper*/
 /logs
 .project
 .pydevproject
+# PyCharm files
 .idea
 .idea/
 .idea/*
+# VIM files
+*.sw?
