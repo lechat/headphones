@@ -11,7 +11,8 @@ What is broken:
 
 What is planned:
 * fix what's broken :)
-* add ElasticSearch support
+* PostgreSQL support
+* ElasticSearch support
 * to have performance optimised and pythonized version of Headphones
 
 
