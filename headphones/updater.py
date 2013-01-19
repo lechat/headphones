@@ -16,20 +16,20 @@
 from headphones import logger, databases, importer, progress
 
 def dbUpdate():
-    
+
     myDB = databases.getDBConnection()
 
     activeartists = myDB.select('SELECT ArtistID, ArtistName from artists WHERE Status="Active" or Status="Loading" order by LastUpdated ASC')
 
     logger.info('Starting update for %i active artists' % len(activeartists))
-    
+
     p = progress.get("Database Update",desc="Update artists",mod=__name__,max=len(activeartists))
     p.message = "in progress"
-    
-    for idx,artist in enumerate(activeartists):
+
+    for idx, artist in enumerate(activeartists):
         artistid = artist['ArtistID']
-        importer.addArtisttoDB(artistid, False,True)
-        p.update(idx,artist['ArtistName'])
-    
+        importer.addArtisttoDB(artistid, False, True)
+        p.update(idx, artist['ArtistName'])
+
     p.message = "complete"
     logger.info('Update complete')
