@@ -91,14 +91,21 @@ class DBConnection(DBConnectionInterface):
                 logger.warn('Export error: %s' % e)
         return
 
-    def selectSome(self, query, off, lim, args=None):
+    def selectSome(self, query, offset, limit, args=None):
         r = []
         try:
-            query = query + ' LIMIT ' + str(lim) + ' OFFSET ' + str(off)
+            query = query + ' LIMIT ' + str(limit) + ' OFFSET ' + str(offset)
             r = self.select(query, args)
         except Exception as e:
             logger.info('Failed limited select: %s' % e )
         return r
+
+    def selectOne(self, query, args=None):
+        result = self.selectSome(query=query, offset=0, limit=1, args=args)
+        if not result:
+            return None
+        else:
+            return result[0]
 
     def select(self, query, args=None):
         sqlResults = self.action(query, args).fetchall()
@@ -107,6 +114,15 @@ class DBConnection(DBConnectionInterface):
             return []
 
         return sqlResults
+
+    def insert(self, query, args=None):
+        return self.action(query, args=args)
+
+    def delete(self, query, args=None):
+        return self.action(query, args=args)
+
+    def update(self, query, args=None):
+        return self.action(query, args=args)
 
     def upsert(self, tableName, valueDict, keyDict):
         changesBefore = self.connection.total_changes
