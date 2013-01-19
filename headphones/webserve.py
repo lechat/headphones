@@ -89,17 +89,14 @@ class WebInterface(object):
         else:
             artist_extras = artist['Extras']
 
-        i = 1
-        for extra in extras_list:
+        for i, extra in enumerate(extras_list):
             if str(i) in artist_extras:
                 extras_dict[extra] = "checked"
             else:
                 extras_dict[extra] = ""
-            i+=1
 
         return serve_template(templatename="artist.html", title=artist['ArtistName'], artist=artist, albums=albums, extras=extras_dict)
     artistPage.exposed = True
-
 
     def albumPage(self, AlbumID):
         myDB = databases.getDBConnection()
