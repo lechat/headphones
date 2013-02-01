@@ -109,7 +109,7 @@ def searchforalbum(albumid=None, new=False, lossless=False):
          
         for result in results:
             foundNZB = "none"
-            if (headphones.NZBMATRIX or headphones.NEWZNAB or headphones.NZBSORG or headphones.NEWZBIN or headphones.NZBX) and (headphones.SAB_HOST or headphones.BLACKHOLE):
+            if (headphones.NZBMATRIX or headphones.NEWZNAB or headphones.NZBSORG or headphones.NEWZBIN or headphones.NZBX or headphones.NZBSRUS) and (headphones.SAB_HOST or headphones.BLACKHOLE):
                 if result['Status'] == "Wanted Lossless":
                     foundNZB = searchNZB(result['AlbumID'], new, losslessOnly=True)
                 else:
@@ -153,8 +153,8 @@ def searchNZB(albumid=None, new=False, losslessOnly=False):
         
         dic = {'...':'', ' & ':' ', ' = ': ' ', '?':'', '$':'s', ' + ':' ', '"':'', ',':'', '*':'', '.':'', ':':''}
 
-        cleanalbum = helpers.latinToAscii(helpers.replace_all(albums[1], dic))
-        cleanartist = helpers.latinToAscii(helpers.replace_all(albums[0], dic))
+        cleanalbum = helpers.latinToAscii(helpers.replace_all(albums[1], dic)).strip()
+        cleanartist = helpers.latinToAscii(helpers.replace_all(albums[0], dic)).strip()
         
         # Use the provided search term if available, otherwise build a search term
         if albums[5]:
@@ -638,6 +638,10 @@ def searchNZB(albumid=None, new=False, losslessOnly=False):
                     else:
                         logger.info('No more results found for %s' % term)
                         return "none"
+                        
+            if not len(nzblist):
+                logger.info('No appropriate matches found for %s' % term)
+                return "none"
 
             logger.info(u"Pre-processing result")
             
